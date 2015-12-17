@@ -6,6 +6,7 @@
 #include <fstream>
 #include "tachikoma.h"
 #include <njson/json.hpp>
+#include "xboxctrl.h"
 
 #define FPS 25
 #define KEYID(k) ((k)-'a')
@@ -14,6 +15,18 @@ using namespace arma;
 using namespace std;
 using json = nlohmann::json;
 static bool stopsig;
+
+static xboxctrl_t xBoxController;
+static pthread_t xBoxControllerThread;
+
+void *updateXboxController(void* args)
+{
+	while (!stopsig)
+	{
+		xboxctrl_update(&xBoxController);
+	}
+	return NULL;
+}
 
 void stopsignal(int) {
   stopsig = true;
@@ -53,6 +66,11 @@ int main() {
   mat leg_vel(NUM_LEGS, NUM_JOINTS, fill::zeros);
   vec wheels(NUM_LEGS, fill::zeros);
 
+
+  // connect to xbox controller
+  xboxctrl_connect(&xBoxController);
+  pthread_create(&xBoxControllerThread, NULL, updateXboxController, NULL);
+
   // run loop
   char key_pressed[26];
   int legid = 0;
@@ -85,6 +103,7 @@ int main() {
             case SDLK_a: key_pressed[KEYID('a')] = 1; break;
             case SDLK_s: key_pressed[KEYID('s')] = 1; break;
             case SDLK_d: key_pressed[KEYID('d')] = 1; break;
+            case SDLK_x: key_pressed[KEYID('x')] = 1; break;
             case SDLK_1: legid = 0; break;
             case SDLK_2: legid = 1; break;
             case SDLK_3: legid = 2; break;
@@ -114,6 +133,7 @@ int main() {
             case SDLK_a: key_pressed[KEYID('a')] = 0; break;
             case SDLK_s: key_pressed[KEYID('s')] = 0; break;
             case SDLK_d: key_pressed[KEYID('d')] = 0; break;
+			case SDLK_x: key_pressed[KEYID('x')] = 0; break;
             default: break;
           }
         } break;
@@ -141,33 +161,72 @@ int main() {
     int k_a = key_pressed[KEYID('a')];
     int k_s = key_pressed[KEYID('s')];
     int k_d = key_pressed[KEYID('d')];
+    int quit = key_pressed[KEYID('x')];
 
-    if (velocity_en) {
+    if (velocity_en)
+    {
+      if (quit != 0)
+      {
+      	printf("Quitting\n");
+      	SDL_Quit();
+      }
+
       printf("velocity en\n");
       leg_vel(legid, WAIST) = (k_u - k_h);
-      leg_vel(legid, THIGH) = (k_i - k_j);
+      // leg_vel(legid, THIGH) = (k_i - k_j);
+	  leg_vel(0, THIGH) = (k_i - k_j);
+	  leg_vel(1, THIGH) = (k_i - k_j);
+	  leg_vel(2, THIGH) = (k_i - k_j);      
       wheels(legid) = (k_p - k_l);
-    } else if (position_en) {
+
+
+
+    }
+
+    else if (position_en) {
       printf("position en\n");
       double coeff[] = { 1.0, -1.0, -1.0, 1.0 };
       for (int i = 0; i < NUM_LEGS; i++) {
         cout << "dstate: " << coeff[i] << endl;
         leg_pos(i, WAIST) = (double)(dposestate) * M_PI_4 * coeff[i];
         leg_pos(i, THIGH) = (double)(standstate) * M_PI_4;
-        switch (i) {
-          case UL:
-            wheels(i) = k_w - k_a - k_s + k_d - k_q + k_e;
-            break;
-          case UR:
-            wheels(i) = k_w + k_a - k_s - k_d + k_q - k_e;
-            break;
-          case DL:
-            wheels(i) = k_w - k_a - k_s + k_d + k_q - k_e;
-            break;
-          case DR:
-            wheels(i) = k_w + k_a - k_s - k_d - k_q + k_e;
-            break;
-        }
+        // switch (i) {
+        //   case UL:
+        //     wheels(i) = k_w - k_a - k_s + k_d - k_q + k_e;
+        //     break;
+        //   case UR:
+        //     wheels(i) = k_w + k_a - k_s - k_d + k_q - k_e;
+        //     break;
+        //   case DL:
+        //     wheels(i) = k_w - k_a - k_s + k_d + k_q - k_e;
+        //     break;
+        //   case DR:
+        //     wheels(i) = k_w + k_a - k_s - k_d - k_q + k_e;
+        //     break;
+        // }
+
+
+      printf("standstate: %d\n", standstate);
+
+      double w[4];
+
+      w[0] = (xBoxController.LJOY.y + xBoxController.LJOY.x + xBoxController.RJOY.x); //Front Left
+      w[1] = (xBoxController.LJOY.y - xBoxController.LJOY.x - xBoxController.RJOY.x); //Front Right
+      w[2] = (xBoxController.LJOY.y - xBoxController.LJOY.x + xBoxController.RJOY.x); //Back Left
+      w[3] = (xBoxController.LJOY.y + xBoxController.LJOY.x - xBoxController.RJOY.x); //Back Right
+
+      for (int i=0; i<4; i++)
+      {
+      	if (abs(w[i]) < 0.2)
+      	{
+      		w[i] = 0;
+      	}
+      wheels(i) = w[i];
+  	  }
+
+
+
+
       }
     }
     tachikoma.move(leg_pos, leg_vel, wheels, zeros<mat>(1, 1), position_en, velocity_en);
@@ -184,6 +243,9 @@ int main() {
       SDL_Delay(1000 / FPS - (SDL_GetTicks() - start));
     }
   }
+
+  pthread_join(xBoxControllerThread, NULL);
+  xboxctrl_disconnect(&xBoxController);
 
   SDL_Quit();
   return 0;
