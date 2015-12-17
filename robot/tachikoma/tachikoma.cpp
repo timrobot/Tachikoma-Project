@@ -326,8 +326,7 @@ bool Tachikoma::set_calibration_params(const string &filename) {
     params += temp;
   }
   params_file.close();
-  this->set_calibration_params(json::parse(buf));
-  delete buf;
+  this->set_calibration_params(json::parse(params));
   return true;
 }
 
