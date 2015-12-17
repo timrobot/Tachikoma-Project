@@ -330,7 +330,7 @@ bool Tachikoma::set_calibration_params(const string &filename) {
   return true;
 }
 
-void Tachikoma::set_calibration_params(json cp) {
+void Tachikoma::set_calibration_params(json cp, bool restrict_) {
   vector<string> legnames = { "ul", "ur", "dl", "dr" };
   vector<int> legids = { UL, UR, DL, DR };
   vector<string> jointnames = { "waist", "thigh" };
