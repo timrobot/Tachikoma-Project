@@ -1,0 +1,22 @@
+######################################
+# Syntax Coloring Map QuadEncoder
+######################################
+
+######################################
+# Datatypes (KEYWORD1)
+######################################
+
+QuadEncoder KEYWORD1
+
+######################################
+# Methods and Functions (KEYWORD 2)
+######################################
+
+attach KEYWORD2
+read KEYWORD2
+reset KEYWORD2
+reverse KEYWORD2
+
+######################################
+# Constants (LITERAL1)
+######################################
