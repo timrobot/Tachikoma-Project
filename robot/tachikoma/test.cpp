@@ -5,12 +5,14 @@
 #include <iostream>
 #include <fstream>
 #include "tachikoma.h"
+#include <njson/json.hpp>
 
 #define FPS 25
 #define KEYID(k) ((k)-'a')
 
 using namespace arma;
 using namespace std;
+using json = nlohmann::json;
 static bool stopsig;
 
 void stopsignal(int) {
@@ -37,7 +39,15 @@ int main() {
     tachikoma.disconnect();
     return 1;
   }
-  tachikoma.set_calibration_params("calib_params.json");
+
+  string params;
+  ifstream params_file("calib_params.json");
+  string temp;
+  while (getline(params_file, temp)) {
+    params += temp;
+  }
+  params_file.close();
+  tachikoma.set_calibration_params(json::parse(params));
 
   mat leg_pos(NUM_LEGS, NUM_JOINTS, fill::zeros);
   mat leg_vel(NUM_LEGS, NUM_JOINTS, fill::zeros);

@@ -103,7 +103,7 @@ class Tachikoma : public BaseRobot {
      *  @param cp the calibration parameters
      */
     bool set_calibration_params(const std::string &filename);
-    void set_calibration_params(nlohmann::json cp, bool restrict_);
+    void set_calibration_params(nlohmann::json cp);
 
     /** Detect if a robot has been calibrated
      *  @return true if calibration parameters are found, false otherwise
