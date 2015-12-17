@@ -6,7 +6,7 @@ BASEROBOT = $(shell pwd)/..
 INCLUDE = -I$(SERIAL) -I$(BASEROBOT)
 SUBDIRS = $(SERIAL)
 SUBOBJS = $(SERIAL)/serial.o
-OBJECTS = tachikoma.o
+OBJECTS = tachikoma.o xboxctrl.o
 
 all: subdirs $(OBJECTS)
 
@@ -22,6 +22,9 @@ test.o: test.cpp
 
 test: $(BASEROBOT)/baserobot.o $(OBJECTS) $(SERIAL)/serial.o test.o
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ $^ $(LIBS)
+
+xboxctrl.o: xboxctrl.c xboxctrl.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ -c $<
 
 clean:
 	rm -f $(OBJECTS) $(SUBOBJS) test.o test
