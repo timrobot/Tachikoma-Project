@@ -94,7 +94,7 @@ static int targetv[2];
 static int prevv[2];
 static int targetp[2];
 
-void loop() {/*
+void loop() {
   int nbytes = 0;
   if ((nbytes = Serial.available())) {
     timeout = millis();
@@ -160,7 +160,7 @@ void loop() {/*
 
   // push the values to the motors
   setmotors(vel);
-*/
+
   if (millis() - msecs > 100) {
     sprintf(wbuf, "[%d %d %d %d %d %d %d]\n",
       DEV_ID,
