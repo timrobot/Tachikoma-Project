@@ -33,7 +33,7 @@ __global__ void barrel_distort_ovr(float *G, float *F,
 
 gcube ovr_image(const gcube &left, const gcube &right, double offset_x) {
   // assume that the left and right images have equal dimensions
-  assert(left.n_rows == right.n_rows && left.n_rows == right.n_rows);
+  assert(left.n_rows == right.n_rows && left.n_cols == right.n_cols);
   double mrx = left.n_cols / 2.0 * (1 + abs(offset_x));
   double mry = right.n_cols / 2.0;
   float r_max = (float)sqrt(mrx * mrx + mry * mry);

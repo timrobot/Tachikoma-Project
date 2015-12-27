@@ -1,4 +1,4 @@
-#include <opencv3/highgui/highgui.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <cstdio>
 #include <cassert>
 #include "highgui.h"
