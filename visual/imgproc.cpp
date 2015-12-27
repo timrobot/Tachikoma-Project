@@ -132,8 +132,13 @@ mat edge2(const mat &F, uword n, double sigma2, bool isSobel, bool isDoG) {
   }
 }
 
-mat edge2(const cube &F, uword n, double sigma2, bool isSobel, bool isDoG) {
-  return edge2(cvt_rgb2gray(F), n, sigma2, isSobel, isDoG);
+cube edge2(const cube &F, uword n, double sigma2, bool isSobel, bool isDoG) {
+  cube edges(F.n_rows, F.n_cols, 3);
+  mat E = edge2(cvt_rgb2gray(F), n, sigma2, isSobel, isDoG);
+  edges.slice(0) = E;
+  edges.slice(1) = E;
+  edges.slice(2) = E;
+  return edges;
 }
 
 void gradient2(mat &DX, mat &DY, const mat &F) {
@@ -188,7 +193,7 @@ mat nmm2(const mat &F, uword nsize, bool min_en, bool max_en) {
   return G;
 }
 
-mat k_cluster(const mat &S, uword k) {
+mat k_cluster(const mat &S, uword k, int niter, vector<vec> &centroids, vector<vec> hyp, bool usehyp) {
   // do a check against the size of the image
   if (k >= S.n_cols-1 || k == 0) {
     fprintf(stderr, "Not valid cluster number!\n");
@@ -196,11 +201,16 @@ mat k_cluster(const mat &S, uword k) {
   }
   // generate k randomized centers uniformly random
   vector<vec> cluster_ind;
-  for (uword i = 0; i < k; i++) {
+  if (usehyp) {
+    for (uword i = 0; i < hyp.size() && i < k; i++) {
+      cluster_ind.push_back(hyp[i]);
+    }
+  }
+  for (uword i = cluster_ind.size(); i < k; i++) {
     cluster_ind.push_back(S.col(rand() % S.n_cols));
   }
   // try to get the cluster element by doing iterative matchups (15 times? heuristic)
-  for (int iter = 0; iter < 15; iter++) { // should be until cluster_ind doesn't change anymore
+  for (int iter = 0; iter < niter; iter++) { // should be until cluster_ind doesn't change anymore
     // cluster step 1: assign
     // create individual partitions
     vector< vector<vec> > partition;
@@ -239,16 +249,22 @@ mat k_cluster(const mat &S, uword k) {
   }
   // generate the cluster from the partitions
   mat cluster(S.n_rows, k);
+  centroids = cluster_ind;
   for (int j = 0; j < (int)k; j++) {
     cluster.col(j) = cluster_ind[j];
   }
   return cluster;
 }
 
-mat hist_segment2(const mat &F, uword k) { // do mixture of gaussians later on?
+mat hist_segment2(const mat &F, uword k, vector<vec> &centroids, int niter, vector<vec> hyp, bool usehyp) { // do mixture of gaussians later on?
   mat H = F;
   // cluster the color points based on the number of clusters
-  mat S = k_cluster(reshape(H, 1, H.n_rows * H.n_cols), k);
+  mat S;
+  if (usehyp) {
+    k_cluster(reshape(H, 1, H.n_rows * H.n_cols), k, niter, centroids, hyp, true);
+  } else {
+    k_cluster(reshape(H, 1, H.n_rows * H.n_cols), k, niter, centroids);
+  }
   // filter the image to use the closest cluster based on
   // the k-cluster algorithm given before
   for (uword i = 0; i < H.n_rows; i++) {
@@ -271,7 +287,7 @@ mat hist_segment2(const mat &F, uword k) { // do mixture of gaussians later on?
   return H;
 }
 
-cube hist_segment2(const cube &F, uword k) {
+cube hist_segment2(const cube &F, uword k, vector<vec> &centroids, int niter, vector<vec> hyp, bool usehyp) {
   cube C = F;
   mat Z(C.n_slices, C.n_rows * C.n_cols);
   for (uword i = 0; i < C.n_rows; i++) {
@@ -283,7 +299,12 @@ cube hist_segment2(const cube &F, uword k) {
       Z.col(j * C.n_rows + i) = RGB;
     }
   }
-  mat S = k_cluster(Z, k);
+  mat S;
+  if (usehyp) {
+    S = k_cluster(Z, k, niter, centroids, hyp, true);
+  } else {
+    S = k_cluster(Z, k, niter, centroids);
+  }
   for (uword i = 0; i < C.n_rows; i++) {
     for (uword j = 0; j < C.n_cols; j++) {
       vec RGB(C.n_slices);

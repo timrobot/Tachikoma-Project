@@ -1,5 +1,5 @@
 CXX = g++
-CCFLAGS = -fPIC -g -Wall -std=c++11 -pthread
+CCFLAGS = -fPIC -g -Wall -std=c++11
 INCLUDE = -I/usr/local/include \
 					-I/usr/local/include/libfreenect \
 					-I/usr/include/libusb-1.0
@@ -8,17 +8,18 @@ LIBS = -L/usr/local/lib \
 			 -larmadillo \
 			 -lopencv_core \
 			 -lopencv_imgproc \
-			 -lopencv_highgui
+			 -lopencv_highgui \
+			 -pthread
 OBJECTS = kinect.o
 TEST = test.o test
 
 all: $(OBJECTS)
 
 kinect.o: kinect.cpp
-	$(CXX) $(CCFLAGS) -o $@ -c $< $(INCLUDE)
+	$(CXX) $(INCLUDE) $(CCFLAGS) -o $@ -c $<
 
 test.o: test.cpp
-	$(CXX) $(CCFLAGS) -o $@ -c $< $(INCLUDE)
+	$(CXX) $(INCLUDE) $(CCFLAGS) -o $@ -c $<
 
 test: test.o kinect.o
 	$(CXX) $(INCLUDE) $(CCFLAGS) -o $@ $< $(LIBS)

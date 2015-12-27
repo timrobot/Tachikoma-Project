@@ -11,8 +11,6 @@
 #define HA_OPEN   5
 
 // Device Ids //
-#define SHOULDER  1
-#define ELBOW     2
-#define WRIST     3
+#define ARM 1
 
 #endif

@@ -262,7 +262,7 @@ gcube gpu_nmm2(const gcube &F, const gcube &Fx, const gcube &Fy) {
   return G;
 }
 
-__global__ void GPU_bilinear_filter2(float *G, float *F, int G_rows, int G_cols, int F_rows, int F_cols, int n_slices, float kr, float kc) {
+__global__ void GPU_bilinear_interpolate2(float *G, float *F, int G_rows, int G_cols, int F_rows, int F_cols, int n_slices, float kr, float kc) {
   // gather
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -310,8 +310,102 @@ gcube gpu_imresize2(const gcube &A, int m, int n) {
   double kc = (double)A.n_cols / (double)n;
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((G.n_cols-1)/16+1, (G.n_rows-1)/16+1, 1);
-  GPU_bilinear_filter2<<<gridSize, blockSize>>>(G.d_pixels, A.d_pixels,
+  GPU_bilinear_interpolate2<<<gridSize, blockSize>>>(G.d_pixels, A.d_pixels,
       G.n_rows, G.n_cols, A.n_rows, A.n_cols, A.n_slices, (float)kr, (float)kc);
   checkCudaErrors(cudaGetLastError());
   return G;
+}
+
+__global__ void GPU_k_cluster2_create(float *I, int n_rows, int n_cols, int n_slices, int k, float *hyp, int n_hyp) {
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  if (i >= n_rows || j >= n_cols) {
+    return;
+  }
+
+  // generate k randomized clusters (off of hypotheses)
+  int k_id = 0;
+  for (; k_id < n_hyp; k_id++) {
+    
+  }
+  if (k >= S.n_cols-1 || k == 0) {
+    fprintf(stderr, "Not valid cluster number!\n");
+    return S;
+  }
+  // generate k randomized centers uniformly random
+  vector<vec> cluster_ind;
+  if (usehyp) {
+    for (uword i = 0; i < hyp.size() && i < k; i++) {
+      cluster_ind.push_back(hyp[i]);
+    }
+  }
+  for (uword i = cluster_ind.size(); i < k; i++) {
+    cluster_ind.push_back(S.col(rand() % S.n_cols));
+  }
+  // try to get the cluster element by doing iterative matchups (15 times? heuristic)
+  for (int iter = 0; iter < niter; iter++) { // should be until cluster_ind doesn't change anymore
+    // cluster step 1: assign
+    // create individual partitions
+    vector< vector<vec> > partition;
+    for (int i = 0; i < (int)k; i++) {
+      partition.push_back(vector<vec>());
+    }
+    // place each vector in Z into their correlated partition
+    for (uword j = 0; j < S.n_cols; j++) {
+      // calculate the squared difference
+      vec diff = cluster_ind[0] - S.col(j);
+      double min_val = sqrt(dot(diff, diff));
+      // find the most closely correlated cluster center
+      uword min_ind = 0;
+      for (uword i = 0; i < cluster_ind.size(); i++) {
+        diff = cluster_ind[i] - S.col(j);
+        double interim = sqrt(dot(diff, diff));
+        if (interim < min_val) {
+          min_val = interim;
+          min_ind = i;
+        }
+      }
+      // place the vector into the partition
+      partition[min_ind].push_back(S.col(j));
+    }
+    // cluster step 2: update
+    for (int i = 0; i < (int)k; i++) {
+      if (partition[i].size() > 0) {
+        // recalculate the center of mass by averaging everything
+        vec summation(S.n_rows, fill::zeros);
+        for (vec &p : partition[i]) {
+          summation += p;
+        }
+        cluster_ind[i] = summation / (double)partition[i].size();
+      }
+    }
+  }
+  // generate the cluster from the partitions
+  mat cluster(S.n_rows, k);
+  centroids = cluster_ind;
+  for (int j = 0; j < (int)k; j++) {
+    cluster.col(j) = cluster_ind[j];
+  }
+  return cluster;
+}
+
+gcube gpu_k_cluster(const gcube &S, int k, int niter, gcube &centroids, gcube &hyp, bool usehyp) {
+  // do a check against the size of the image
+  assert(S.n_slices == 3); // only work on RGB for now
+  if (k >= S.n_cols - 1 || k == 0) {
+    fprintf(stderr, "Not a valid cluster number\n");
+    return S;
+  }
+  // generate randomized centers, hypotheses first
+  centroids.create(3, k);
+  for (int j = 0; j < hyp.size() && j < k; j++) {
+    checkCudaErrors(cudaMemcpy(
+  }
+  for (int j = 0; j + (int)hyp.size() < k; j++) {
+    vec v = hyp[j];
+    for (int i = 0; i < 3; i++) {
+      _centroids[IJ2C(i, j + (int)hyp.size(), 3)] = v(i);
+    }
+  }
+  float *
 }
