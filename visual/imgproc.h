@@ -40,6 +40,8 @@ arma::mat edge2(const arma::mat &F, arma::uword n = 7, double sigma2 = 0.5,
 arma::cube edge2(const arma::cube &F, arma::uword n = 7, double sigma2 = 0.5,
     bool isSobel = false, bool isDoG = true);
 
+void blob2(const arma::mat &F, std::vector<arma::vec> &centroids);
+
 /** Generate a gradient matrix of a grayscale image.
  *  @param F the image to find the gradient of
  *  @return a pair of gradient matrices { X, Y }

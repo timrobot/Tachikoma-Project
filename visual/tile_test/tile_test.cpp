@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include "highgui.h"
 #include "imgproc.h"
+#include "draw.h"
 //#include "kcluster.h"
 
 using namespace std;
@@ -23,12 +24,6 @@ using namespace cv::line_descriptor;
 using namespace cv::detail;
 const int nmatches = 35;
 
-// Camera Matrix for the PS3 Eye
-Mat mtx(3, 3, CV_64F);
-
-// Distortion Coefficients for the PS3 Eye
-Mat dist(5, 1, CV_64F);
-
 Mat drawMatches(Mat img1, vector<KeyPoint> kp1, Mat img2, vector<KeyPoint> kp2, vector<DMatch> matches) {
   int rows1 = img1.rows;
   int cols1 = img1.cols;
@@ -36,8 +31,8 @@ Mat drawMatches(Mat img1, vector<KeyPoint> kp1, Mat img2, vector<KeyPoint> kp2, 
   int cols2 = img2.cols;
 
   Mat color1 = img1, color2 = img2;
-//  cvtColor(img1, color1, COLOR_GRAY2BGR);
-//  cvtColor(img2, color2, COLOR_GRAY2BGR);
+  //  cvtColor(img1, color1, COLOR_GRAY2BGR);
+  //  cvtColor(img2, color2, COLOR_GRAY2BGR);
   Mat out(MAX(rows1, rows2), cols1+cols2, CV_8UC3);
   for (int i = 0; i < rows1; i++) {
     for (int j = 0; j < cols1; j++) {
@@ -100,24 +95,16 @@ arma::cube filter_color(arma::cube I, arma::vec c) {
         I(i, j, 1) = c(1);
         I(i, j, 2) = c(2);
       } else {
-        I(i, j, 0) = 1;
-        I(i, j, 1) = 1;
-        I(i, j, 2) = 1;
+        I(i, j, 0) = 0;
+        I(i, j, 1) = 0;
+        I(i, j, 2) = 0;
       }
     }
   }
   return I;
 }
 
-int main(int argc, char *argv[]) {
-  Mat img1 = imread("img01.png");
-  Mat img2 = imread("test00.png");
-
-  arma::cube I1 = cvt_opencv2arma(img1) / 255;
-  arma::cube I2 = cvt_opencv2arma(img2) / 255;
-
-  // segment the images
-  printf("segmenting the images\n");
+arma::cube filter_obj(arma::cube I1, arma::cube I2) {
   vector<arma::vec> centroids1, centroids2;
   I1 = hist_segment2(I1, 2, centroids1, 5);
   arma::vec center_color = arma::vec({
@@ -125,61 +112,56 @@ int main(int argc, char *argv[]) {
       I1(I1.n_rows / 2, I1.n_cols / 2, 1),
       I1(I1.n_rows / 2, I1.n_cols / 2, 2) });
   vector<arma::vec> hyp = { center_color };
-  I2 = hist_segment2(I2, 4, centroids2, 5, hyp, true);
+  I2 = hist_segment2(I2, 5, centroids2, 5, hyp, true);
   arma::vec best_match = centroids2[0]; // pretend this was the color
   I2 = filter_color(I2, best_match);
-  I1 = edge2(I1);
-  I2 = edge2(I2);
-  I1 /= I1.max();
-  I2 /= I2.max();
-  //I2 = edge2(I2, 7, false, true);
-  printf("finished\n");
+  return I2;
+}
 
-  img1 = cvt_arma2opencv(I1 * 255);
-  img2 = cvt_arma2opencv(I2 * 255);
+int main(int argc, char *argv[]) {
+  Mat img1 = imread("img01.png");
+  Mat img2 = imread("test00.png");
 
-  disp_image("segmented1", I1);
-  disp_image("segmented2", I2);
-  disp_wait();
+  arma::cube I2 = filter_obj(cvt_opencv2arma(img1) / 255, cvt_opencv2arma(img2) / 255);
+//  arma::mat g = cvt_rgb2gray(I2);
 
-  printf("matching feature points\n");
+//  disp_image("segmented image", g);
+//  disp_wait();
 
-  Mat gray1, gray2;
-  cvtColor(img1, gray1, COLOR_BGR2GRAY);
-  cvtColor(img2, gray2, COLOR_BGR2GRAY);
+  // histogram algorithm here
+  //
 
-  // feature detector
-  Ptr<SIFT> sift = SIFT::create();
-  vector<KeyPoint> kp1, kp2;
-  Mat des1, des2;
-  sift->detectAndCompute(gray1, noArray(), kp1, des1);
-  sift->detectAndCompute(gray2, noArray(), kp2, des2);
-
-  Ptr<IndexParams> indexParams = makePtr<KDTreeIndexParams>(5);
-  Ptr<SearchParams> searchParams = makePtr<SearchParams>(50);
-  FlannBasedMatcher flann(indexParams, searchParams);
-  vector< vector<DMatch> > matches;
-  flann.knnMatch(des1, des2, matches, 2);
-
-  // ratio test (as per Lowe's paper)
-  vector<DMatch> good;
-  vector<Point2f> pts1, pts2;
-  good.clear();
-  pts1.clear();
-  pts2.clear();
-  for (int i = 0; i < matches.size(); i++) {
-    DMatch m = matches[i][0];
-    DMatch n = matches[i][1];
-    if (m.distance < 0.8 * n.distance) {
-      good.push_back(m);
-      pts2.push_back(kp2[m.trainIdx].pt);
-      pts1.push_back(kp1[m.queryIdx].pt);
+  arma::mat g = cvt_rgb2gray(I2);
+  int grows = g.n_rows;
+  int gcols = g.n_cols;
+  vector<int> colshist(gcols), rowshist(grows);
+  for (int i = 0; i < grows; i++) {
+    for (int j = 0; j < gcols; j++) {
+      if(g(i,j)!=0){
+        rowshist[i]++;
+        colshist[j]++;
+      }
     }
   }
 
-  Mat matchFrame = drawMatches(img1, kp1, img2, kp2, good);
-  imshow("matches", matchFrame);
-  waitKey(0);
+  int yeti = 0; int ysum = 0;
+  for(int i=0; i<grows; i++){
+    yeti+=rowshist[i]*i;
+    ysum+=rowshist[i];
+  }
+  double centroidy = (double)yeti/(double)ysum;
+  int xeti=0; int xsum=0;
+  for(int i=0; i<gcols; i++){
+    xeti+=colshist[i]*i;
+    xsum+=colshist[i];
+  }
+  double centroidx = (double)xeti/(double)xsum;
+
+  I2((int)centroidy, (int)centroidx, 0) = 1;
+  I2((int)centroidy, (int)centroidx, 1) = 0;
+  I2((int)centroidy, (int)centroidx, 2) = 0;
+  disp_image("centroids?", I2);
+  disp_wait();
 
   return 0;
 }
