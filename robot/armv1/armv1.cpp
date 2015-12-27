@@ -140,13 +140,13 @@ void Arm::send(
 
         case ARM:
           sprintf(msg, "[%d %d %d %d %d %d %d]\n",
-              arm_theta_en,
-              (int)(arm[SH_YAW]),
-              (int)(arm[SH_PITCH]),
-              (int)(arm[EL_PITCH]),
-              (int)(arm[WR_PITCH]),
-              (int)(arm[WR_ROLL]),
-              (int)(arm[HA_OPEN]));
+              arm_vel_en,
+              (int)(omega[SH_YAW] * 255.0),
+              (int)(omega[SH_PITCH] * 255.0),
+              (int)(omega[EL_PITCH] * 255.0),
+              (int)(omega[WR_PITCH] * 255.0),
+              (int)(omega[WR_ROLL] * 255.0),
+              (int)(omega[HA_OPEN]) * 255.0);
           serial_write(this->connections[i], msg);
           break;
 

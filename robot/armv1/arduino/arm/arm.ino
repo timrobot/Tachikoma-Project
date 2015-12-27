@@ -117,12 +117,12 @@ void loop() {
         // CUSTOMIZE (set the setpoint)
         sscanf(s, "[%d %d %d %d %d %d %d]\n",
           &move_en,
-          &pos[0],
-          &pos[1],
-          &pos[2],
-          &pos[3],
-          &pos[4],
-          &pos[5]);
+          &vel[0],
+          &vel[1],
+          &vel[2],
+          &vel[3],
+          &vel[4],
+          &vel[5]);
         timeout = millis();
         if (!pid_en && move_en) {
           for (int i = 0; i < 6; i++) {
@@ -151,11 +151,11 @@ void loop() {
 
   // Update the PID
   for (int i = 0; i < 6; i++) {
-    in[i] = analogRead(A0 + i);
+    /*in[i] = analogRead(A0 + i);
     pospid[i]->Compute();
     if (pid_en && move_en) {
       vel[i] = out[i] - in[i];
-    }
+    }*/
   }
 
   // push the values to the motors
