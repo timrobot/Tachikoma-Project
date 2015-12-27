@@ -1,6 +1,6 @@
 #include "gpu_util.h"
 
-__global__ void GPU_sum(float *G, float *F, int n) {
+__global__ void GPU_sum(float *G, float *F, int n) { // TODO: fix
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= n) {
     return;
@@ -49,6 +49,10 @@ __global__ void GPU_div(float *H, float *F, float *G, int n_rows, int n_cols) {
     return;
   }
   H[IJ2C(i, j, n_rows)] = F[IJ2C(i, j, n_rows)] / G[IJ2C(i, j, n_rows)];
+}
+
+__global__ void GPU_mmul(float *H, float *F, float *G, int n_rows, int n_cols, int n_inner) {
+  
 }
 
 __global__ void GPU_abs(float *H, float *F, int n_rows, int n_cols) {

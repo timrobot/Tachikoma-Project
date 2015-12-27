@@ -1,7 +1,6 @@
-#include <cmath>
 #include <cstdio>
-#include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <cmath>
 #include "kinect.h"
 
 using namespace cv;
@@ -24,8 +23,7 @@ KinectDevice::KinectDevice(freenect_context *_ctx, int _index) :
     distanceMat(Size(640, 480), CV_64F),
     rows(640),
     cols(480) {
-  int i;
-  for (i = 0; i < 2048; i++) {
+  for (uint32_t i = 0; i < 2048; i++) {
     float v = i / 2048.0;
     v = pow(v, 3) * 6;
     this->gamma_buffer[i] = v * 6 * 256;

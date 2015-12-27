@@ -45,7 +45,7 @@ mat conv2(const mat &F, const mat &H) {
         B(i+my, j) = sum(S % rk);
       }
     }
-    
+
     // then do the convolution across the cols
     for (uword i = 0; i < F.n_rows; i++) {
       for (uword j = 0; j < F.n_cols; j++) {
@@ -53,7 +53,7 @@ mat conv2(const mat &F, const mat &H) {
         G(i, j) = sum(S % ck);
       }
     }
-    
+
   } else {
     // regular convolution
     mat K = flipmat(H); // convolution kernel inverse
@@ -132,8 +132,58 @@ mat edge2(const mat &F, uword n, double sigma2, bool isSobel, bool isDoG) {
   }
 }
 
-mat edge2(const cube &F, uword n, double sigma2, bool isSobel, bool isDoG) {
-  return edge2(cvt_rgb2gray(F), n, sigma2, isSobel, isDoG);
+cube edge2(const cube &F, uword n, double sigma2, bool isSobel, bool isDoG) {
+  cube edges(F.n_rows, F.n_cols, 3);
+  mat E = edge2(cvt_rgb2gray(F), n, sigma2, isSobel, isDoG);
+  edges.slice(0) = E;
+  edges.slice(1) = E;
+  edges.slice(2) = E;
+  return edges;
+}
+
+void blob2(const mat &F, vector<vec> &centroids) {
+  mat visited(F.n_rows, F.n_cols, fill::zeros);
+  vector<ivec> tovisit;
+  size_t nvisited = 0;
+  centroids.clear();
+  ivec pt;
+  vec mid(2);
+  int npts;
+  for (uword i = 0; i < F.n_rows; i++) {
+    for (uword j = 0; j < F.n_cols; j++) {
+      if (!visited(i, j)) {
+        mid.zeros();
+        npts = 0;
+        tovisit.push_back(ivec({(sword)i,(sword)j}));
+        visited(i,j) = 1;
+        while (tovisit.size() > nvisited) {
+          pt = tovisit[nvisited];
+          if (pt(0)-1>=0 && !visited(pt(0)-1,pt(1)) && F(pt(0)-1,pt(1)) == F(pt(0),pt(1))) {
+            visited(pt(0)-1,pt(1)) = 1;
+            tovisit.push_back(ivec({pt(0)-1,pt(1)}));
+          }
+          if (pt(0)+1<F.n_rows && !visited(pt(0)+1,pt(1)) && F(pt(0)+1,pt(1)) == F(pt(0),pt(1))) {
+            visited(pt(0)+1,pt(1)) = 1;
+            tovisit.push_back(ivec({pt(0)+1,pt(1)}));
+          }
+          if (pt(1)-1>=0 && !visited(pt(0),pt(1)-1) && F(pt(0),pt(1)-1) == F(pt(0),pt(1))) {
+            visited(pt(0),pt(1)-1) = 1;
+            tovisit.push_back(ivec({pt(0),pt(1)-1}));
+          }
+          if (pt(1)+1<F.n_cols && !visited(pt(0),pt(1)+1) && F(pt(0),pt(1)+1) == F(pt(0),pt(1))) {
+            visited(pt(0),pt(1)+1) = 1;
+            tovisit.push_back(ivec({pt(0),pt(1)+1}));
+          }
+          mid += vec({(double)pt(0), (double)pt(1)});
+          npts++;
+          nvisited++;
+        }
+        if (npts > 24) {
+          centroids.push_back(mid/npts);
+        }
+      }
+    }
+  }
 }
 
 void gradient2(mat &DX, mat &DY, const mat &F) {
@@ -188,67 +238,66 @@ mat nmm2(const mat &F, uword nsize, bool min_en, bool max_en) {
   return G;
 }
 
-mat k_cluster(const mat &S, uword k) {
+mat k_cluster(const mat &S, uword k, int niter, vector<vec> &centroids, vector<vec> hyp, bool usehyp) {
   // do a check against the size of the image
   if (k >= S.n_cols-1 || k == 0) {
     fprintf(stderr, "Not valid cluster number!\n");
     return S;
   }
   // generate k randomized centers uniformly random
-  vector<vec> cluster_ind;
-  for (uword i = 0; i < k; i++) {
-    cluster_ind.push_back(S.col(rand() % S.n_cols));
+  centroids.clear();
+  if (usehyp) {
+    for (uword i = 0; i < hyp.size() && i < k; i++) {
+      centroids.push_back(hyp[i]);
+    }
   }
-  // try to get the cluster element by doing iterative matchups (15 times? heuristic)
-  for (int iter = 0; iter < 15; iter++) { // should be until cluster_ind doesn't change anymore
-    // cluster step 1: assign
-    // create individual partitions
-    vector< vector<vec> > partition;
-    for (int i = 0; i < (int)k; i++) {
-      partition.push_back(vector<vec>());
-    }
-    // place each vector in Z into their correlated partition
-    for (uword j = 0; j < S.n_cols; j++) {
-      // calculate the squared difference
-      vec diff = cluster_ind[0] - S.col(j);
-      double min_val = sqrt(dot(diff, diff));
-      // find the most closely correlated cluster center
-      uword min_ind = 0;
-      for (uword i = 0; i < cluster_ind.size(); i++) {
-        diff = cluster_ind[i] - S.col(j);
-        double interim = sqrt(dot(diff, diff));
-        if (interim < min_val) {
-          min_val = interim;
-          min_ind = i;
+  for (uword i = hyp.size(); i < k; i++) {
+    centroids.push_back(S.col(rand() % S.n_cols));
+  }
+  // try to get the cluster element by doing iterative matchups
+  mat interim(3, k);
+  int count[k];
+  for (int iter = 0; iter < niter; iter++) {
+    interim.zeros();
+    memset(count, 0, sizeof(int) * k);
+    // :3 GPU
+    for (int i = 0; i < S.n_cols; i++) {
+      double minerr = 0;
+      bool errset = false;
+      int index = 0;
+      for (int kid = 0; kid < k; kid++) {
+        vec diff = S.col(i) - centroids[kid];
+        double interr = dot(diff, diff);
+        if (!errset || minerr > interr) {
+          errset = true;
+          minerr = interr;
+          index = kid;
         }
       }
-      // place the vector into the partition
-      partition[min_ind].push_back(S.col(j));
+      interim.col(index) += S.col(i);
+      count[index]++;
     }
-    // cluster step 2: update
     for (int i = 0; i < (int)k; i++) {
-      if (partition[i].size() > 0) {
-        // recalculate the center of mass by averaging everything
-        vec summation(S.n_rows, fill::zeros);
-        for (vec &p : partition[i]) {
-          summation += p;
-        }
-        cluster_ind[i] = summation / (double)partition[i].size();
-      }
+      centroids[i] = interim.col(i) / (double)count[i];
     }
   }
   // generate the cluster from the partitions
   mat cluster(S.n_rows, k);
-  for (int j = 0; j < (int)k; j++) {
-    cluster.col(j) = cluster_ind[j];
+  for (int i = 0; i < k; i++) {
+    cluster.col(i) = centroids[i];
   }
   return cluster;
 }
 
-mat hist_segment2(const mat &F, uword k) { // do mixture of gaussians later on?
+mat hist_segment2(const mat &F, uword k, vector<vec> &centroids, int niter, vector<vec> hyp, bool usehyp) { // do mixture of gaussians later on?
   mat H = F;
   // cluster the color points based on the number of clusters
-  mat S = k_cluster(reshape(H, 1, H.n_rows * H.n_cols), k);
+  mat S;
+  if (usehyp) {
+    k_cluster(reshape(H, 1, H.n_rows * H.n_cols), k, niter, centroids, hyp, true);
+  } else {
+    k_cluster(reshape(H, 1, H.n_rows * H.n_cols), k, niter, centroids);
+  }
   // filter the image to use the closest cluster based on
   // the k-cluster algorithm given before
   for (uword i = 0; i < H.n_rows; i++) {
@@ -271,7 +320,7 @@ mat hist_segment2(const mat &F, uword k) { // do mixture of gaussians later on?
   return H;
 }
 
-cube hist_segment2(const cube &F, uword k) {
+cube hist_segment2(const cube &F, uword k, vector<vec> &centroids, int niter, vector<vec> hyp, bool usehyp) {
   cube C = F;
   mat Z(C.n_slices, C.n_rows * C.n_cols);
   for (uword i = 0; i < C.n_rows; i++) {
@@ -283,7 +332,12 @@ cube hist_segment2(const cube &F, uword k) {
       Z.col(j * C.n_rows + i) = RGB;
     }
   }
-  mat S = k_cluster(Z, k);
+  mat S;
+  if (usehyp) {
+    S = k_cluster(Z, k, niter, centroids, hyp, true);
+  } else {
+    S = k_cluster(Z, k, niter, centroids);
+  }
   for (uword i = 0; i < C.n_rows; i++) {
     for (uword j = 0; j < C.n_cols; j++) {
       vec RGB(C.n_slices);
@@ -457,7 +511,7 @@ mat fast_imresize_half(const arma::mat &A) {
       uword i_ = i * 2;
       uword j_ = j * 2;
       I(i, j) = (A(i_, j_) + A(i_+1, j_+1) +
-                 A(i_+1, j_) + A(i_, j_+1))/4;
+          A(i_+1, j_) + A(i_, j_+1))/4;
     }
   }
   return I;
@@ -485,7 +539,7 @@ vector< vector<mat> > gausspyr2(const mat &I, int noctaves, int nscales, double 
 }
 
 void lappyr2(vector< vector<mat> > &blurred, vector< vector<mat> > &edges,
-             const mat &I, int noctaves, int nscales, double sigma2) {
+    const mat &I, int noctaves, int nscales, double sigma2) {
   // grab a gaussian pyramid
   blurred = gausspyr2(I, noctaves, nscales, sigma2);
   // create edges from blurred images

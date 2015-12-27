@@ -65,7 +65,7 @@ Mat getDepthAsBGR(Mat distanceMat) {
 int main(int argc, char ** argv) {
   signal(SIGINT, stopkinect);
 
-  Mat distance(Size(640, 480), CV_16UC1);
+  Mat distance(Size(640, 480), CV_64F);
 
   // initialize
   Freenect::Freenect f;
@@ -75,7 +75,7 @@ int main(int argc, char ** argv) {
 
   // get frames
   while (!stopsig) {
-    kinect.getDepth(distance);
+    //kinect.getDepth(distance);
     /*Mat depth = getDepthAsBGR(distance);
     imshow("kinect", depth);
     if ((waitKey(1) & 0x0F) == 'q') {

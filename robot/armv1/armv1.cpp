@@ -132,45 +132,21 @@ void Arm::send(
     }
     omega[i] = limitf(arm_vel(i), -1.0, 1.0);
   }
-  char instr_activate = 0x80 |
-    ((arm_theta_en && this->calibrated()) ? 0x01 : 0x00) |
-    (arm_vel_en ? 0x02 : 0x00);
 
   char msg[WBUFSIZE];
   for (size_t i = 0; i < this->connections.size(); i++) {
-    if (this->ids[i] > 0 && this->ids[i] <= 3) {
+    if (this->ids[i] > 0 && this->ids[i] <= 1) {
       switch ((devid = this->ids[i])) {
 
-        // shoulder
-        case SHOULDER:
-          sprintf(msg, "[%d %d %d %d %d]\n",
-              instr_activate,
-              (int)(arm[SH_YAW]),
-              (int)(arm[EL_PITCH]),
-              (int)(omega[SH_YAW] * 255.0),
-              (int)(omega[EL_PITCH] * 255.0));
-          serial_write(this->connections[i], msg);
-          break;
-
-        // elbow
-        case ELBOW:
-          sprintf(msg, "[%d %d %d]\n",
-              instr_activate,
-              (int)(arm[SH_PITCH]),
-              (int)(omega[SH_PITCH] * 255.0));
-          serial_write(this->connections[i], msg);
-          break;
-
-        // wrist
-        case WRIST:
+        case ARM:
           sprintf(msg, "[%d %d %d %d %d %d %d]\n",
-              instr_activate,
+              arm_theta_en,
+              (int)(arm[SH_YAW]),
+              (int)(arm[SH_PITCH]),
+              (int)(arm[EL_PITCH]),
               (int)(arm[WR_PITCH]),
               (int)(arm[WR_ROLL]),
-              (int)(arm[HA_OPEN]),
-              (int)(omega[WR_PITCH] * 255.0),
-              (int)(omega[WR_ROLL] * 255.0),
-              (int)(omega[HA_OPEN] * 255.0));
+              (int)(arm[HA_OPEN]));
           serial_write(this->connections[i], msg);
           break;
 
@@ -187,40 +163,25 @@ vec Arm::recv() {
 
   // read from device
   for (size_t i = 0; i < this->connections.size(); i++) {
-    if (this->ids[i] > 0 && this->ids[i] <= 3) {
+    if (this->ids[i] > 0 && this->ids[i] <= 1) {
       switch ((devid = this->ids[i])) {
 
-        // shoulder
-        case SHOULDER:
+        case ARM:
           if ((msg = serial_read(this->connections[i]))) {
-            int sensor1;
-            int sensor2;
-            sscanf(msg, "[%d %d %d]\n", &this->ids[i],
-                &sensor1, &sensor2);
-            this->arm_read(SH_YAW) = sensor1;
-            this->arm_read(EL_PITCH) = sensor2;
-          }
-          break;
-
-        case ELBOW:
-          if ((msg = serial_read(this->connections[i]))) {
-            int sensor1;
-            sscanf(msg, "[%d %d]\n", &this->ids[i],
-                &sensor1);
-            this->arm_read(SH_PITCH) = sensor1;
-          }
-          break;
-
-        case WRIST:
-          if ((msg = serial_read(this->connections[i]))) {
-            int sensor1;
-            int sensor2;
-            int sensor3;
-            sscanf(msg, "[%d %d %d %d]\n", &this->ids[i],
-                &sensor1, &sensor2, &sensor3);
-            this->arm_read(WR_PITCH) = sensor1;
-            this->arm_read(WR_ROLL) = sensor2;
-            this->arm_read(HA_OPEN) = sensor3;
+            int sensor[6];
+            sscanf(msg, "[%d %d %d %d %d %d %d]\n", &this->ids[i],
+                &sensor[0],
+                &sensor[1],
+                &sensor[2],
+                &sensor[3],
+                &sensor[4],
+                &sensor[5]);
+            this->arm_read(SH_YAW)   = sensor[0];
+            this->arm_read(SH_PITCH) = sensor[1];
+            this->arm_read(EL_PITCH) = sensor[2];
+            this->arm_read(WR_PITCH) = sensor[3];
+            this->arm_read(WR_ROLL)  = sensor[4];
+            this->arm_read(HA_OPEN)  = sensor[5];
           }
           break;
 

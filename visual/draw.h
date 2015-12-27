@@ -54,7 +54,7 @@ void draw_circle(arma::mat &I, double v, int x, int y, double radius);
 
 /** Draw a circle
  *  @param I the image to draw a circle in (gray)
- *  @param v the grayscale intensity
+ *  @param v the rgb intensity
  *  @param x the center coord x
  *  @param y the center coord y
  *  @param radius the radius of the circle

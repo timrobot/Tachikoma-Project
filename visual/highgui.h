@@ -1,11 +1,8 @@
-#ifndef __TK_HIGHGUI_H__
-#define __TK_HIGHGUI_H__
+#ifndef __HIGHGUI_H__
+#define __HIGHGUI_H__
 
 #include <string>
 #include <opencv2/core/core.hpp>
-
-#ifndef __NVCC__
-
 #include <armadillo>
 
 /** Load an image in arma::cube format
@@ -13,6 +10,12 @@
  *  @return the cube which holds the image data
  */
 arma::cube load_image(const std::string &image_name);
+
+/** Convert a matrix to a cube
+ *  @param m the matrix to convert
+ *  @return the cube from the matrix
+ */
+arma::cube cvt_mat2cube(const arma::mat &m);
 
 /** Save an image to an image name
  *  @param image_name the image name to be saved under
@@ -96,6 +99,18 @@ arma::cube cvt_opencv2arma(const cv::Mat &cv_image);
  */
 cv::Mat cvt_arma2opencv(const arma::cube &image);
 
+/** Convert the cv::Mat to an arma::mat
+ *  @param cv_mtx the cv::Mat
+ *  @return the arma::mat
+ */
+arma::mat opencv2arma(const cv::Mat &cv_mtx);
+
+/** Convert the arma::mat to a cv::Mat
+ *  @param mtx the arma::mat
+ *  @return the cv::Mat
+ */
+cv::Mat arma2opencv(const arma::mat &mtx, int cvtype = CV_64F);
+
 /** Convert rgb to grayscale
  *  @param image the rgb image
  *  @return the grayscale image
@@ -107,39 +122,5 @@ arma::mat cvt_rgb2gray(const arma::cube &image);
  *  @return the rgb image
  */
 arma::cube cvt_gray2rgb(const arma::mat &image);
-
-#else
-
-#include "gcube.h"
-
-/** Display a gcube on a window
- *  @param window_name the name of the window
- *  @param image the gcube to display
- */
-void disp_gcube(const std::string &window_name, gcube &image);
-
-/** Wait until presses a button on the window
- */
-void disp_wait(void);
-
-/** Wait 30 milliseconds or until user presses a button
- *  @return the value of the button pressed if a button was pressed,
- *  otherwise -1
- */
-int disp_keyPressed(void);
-
-/** Convert a gcube from RGB space to GRAY space
- *  @param image the RGB image
- *  @return an image in GRAY space
- */
-gcube gpu_rgb2gray(const gcube &image);
-
-/** Convert a gcube from GRAY space to RGB space
- *  @param image the GRAY image
- *  @return an image in RGB space
- */
-gcube gpu_gray2rgb(const gcube &image);
-
-#endif
 
 #endif

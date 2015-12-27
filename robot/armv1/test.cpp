@@ -41,14 +41,18 @@ int main() {
     return 1;
   }
 
-/*  string params;
+  string params;
   ifstream params_file("calib_params.json");
   string temp;
   while (getline(params_file, temp)) {
     params += temp;
   }
   params_file.close();
-  arm.set_calibration_params(json::parse(params));*/
+  arm.set_calibration_params(json::parse(params));
+  if (!arm.calibrated()) {
+    arm.disconnect();
+    return 1;
+  }
 
   mat arm_pos(1, DOF, fill::zeros);
   mat arm_vel(1, DOF, fill::zeros);
@@ -58,6 +62,9 @@ int main() {
   bool position_en = false;
   bool velocity_en = false;
   memset(key_pressed, 0, 26 * sizeof(char));
+
+  arm_pos = arm.sense();
+
   while (!stopsig) {
     SDL_Event event;
     start = SDL_GetTicks();
@@ -138,6 +145,15 @@ int main() {
       cout << arm_vel << endl;
     } else if (position_en) {
       printf("position enabled\n");
+      arm_pos += vec({
+          (k_q - k_a),
+          (k_w - k_s),
+          (k_e - k_d),
+          (k_i - k_j),
+          (k_o - k_k),
+          (k_p - k_l) }) * 0.001;
+      printf("Angles:\n");
+      cout << arm_pos << endl;
     } else {
       printf("everything disabled\n");
     }

@@ -1,3 +1,4 @@
+#include "gcube.h"
 #include "highgui.h"
 #include "imgproc.h"
 #include <cmath>
@@ -27,8 +28,8 @@ __global__ void GPU_conv2_gen(float *G, float *F, float *H, int F_n_rows, int F_
   int _i, _j, i, j;
   for (i = 0; i < H_n_rows; i++) {
     for (j = 0; j < H_n_cols; j++) {
-      _i = idy + my - i - 1;
-      _j = idx + mx - j - 1;
+      _i = idy + my - i;
+      _j = idx + mx - j;
       if (_i >= 0 && _i < F_n_rows && _j >= 0 && _j < F_n_cols) {
         total += H[IJ2C(i, j, H_n_rows)] * F[IJ2C(_i, _j, F_n_rows)];
         weight += H[IJ2C(i, j, H_n_rows)];
@@ -53,7 +54,7 @@ gcube gpu_conv2(const gcube &F, const gcube &K) {
   return G;
 }
 
-__global__ void GPU_conv2_sym(float *G, float *F, float *Hy, float *Hx, int F_n_rows, int F_n_cols, int H_n_rows, int H_n_cols) {
+__global__ void GPU_conv2_Hy(float *G, float *F, float *Hy, int F_n_rows, int F_n_cols, int H_n_rows) {
   // assume that the matrix represents an image
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -68,20 +69,33 @@ __global__ void GPU_conv2_sym(float *G, float *F, float *Hy, float *Hx, int F_n_
   float total = 0.0f;
   float weight = 0.0f;
   for (int hi = 0; hi < H_n_rows; hi++) {
-    int fi = i + mi - hi - 1;
+    int fi = i + mi - hi;
     if (fi >= 0 && fi < F_n_rows) {
       total += Hy[hi] * F[IJ2C(fi, j, F_n_rows)];
       weight += Hy[hi];
     }
   }
   G[IJ2C(i, j, F_n_rows)] = total / weight;
-  __syncthreads();
-  total = 0.0f;
-  weight = 0.0f;
+} 
+
+__global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_n_cols, int H_n_cols) P
+  // assume that the matrix represents an image
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  if (j >= F_n_cols || i >= F_n_rows) {
+    return;
+  }
+  // stencil operation
+  int mi = H_n_rows / 2;
+  int mj = H_n_cols / 2;
+
+  // forst now just use a for loop
+  float total = 0.0f;
+  float weight = 0.0f;
   for (int hj = 0; hj < H_n_cols; hj++) {
-    int fj = j + mj - hj - 1;
+    int fj = j + mj - hj;
     if (fj >= 0 && fj < F_n_cols) {
-      total += Hx[hj] * G[IJ2C(i, fj, F_n_rows)];
+      total += Hx[hj] * F[IJ2C(i, fj, F_n_rows)];
       weight += Hx[hj];
     }
   }
@@ -90,14 +104,19 @@ __global__ void GPU_conv2_sym(float *G, float *F, float *Hy, float *Hx, int F_n_
 
 gcube gpu_conv2(const gcube &F, const gcube &V, const gcube &H) {
   gcube G(F.n_rows, F.n_cols, F.n_slices);
+  dim3 blockSize(16, 16, 1);
+  dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
   for (int k = 0; k < F.n_slices; k++) {
-    dim3 blockSize(16, 16, 1);
-    dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
     // call the GPU kernel
-    GPU_conv2_sym<<<gridSize, blockSize>>>(
+    GPU_conv2_Hy<<<gridSize, blockSize>>>(
         &G.d_pixels[IJK2C(0, 0, k, G.n_rows, G.n_cols)],
         &F.d_pixels[IJK2C(0, 0, k, F.n_rows, F.n_cols)],
-        V.d_pixels, H.d_pixels, F.n_rows, F.n_cols, V.n_rows, H.n_cols);
+        V.d_pixels, F.n_rows, F.n_cols, V.n_rows);
+    checkCudaErrors(cudaGetLastError());
+    GPU_conv2_Hx<<<gridSize, blockSize>>>(
+        &G.d_pixels[IJK2C(0, 0, k, G.n_rows, G.n_cols)],
+        &F.d_pixels[IJK2C(0, 0, k, F.n_rows, F.n_cols)],
+        H.d_pixels, F.n_rows, F.n_cols, H.n_rows);
     checkCudaErrors(cudaGetLastError());
   }
   return G;
@@ -162,16 +181,14 @@ void gpu_edgesobel2(gcube &V, gcube &H, bool isVert) { // change to vector
   checkCudaErrors(cudaMemcpy(H.d_pixels, H_h_pixels, 3 * sizeof(float), cudaMemcpyHostToDevice));
 }
 
-std::vector<gcube> gpu_gradient2(const gcube &F) {
+void gpu_gradient2(const gcube &F, gcube &V, gcube &H) {
   gcube sobel_v, sobel_h;
-  std::vector<gcube> g;
   // vertical
   gpu_edgesobel2(sobel_v, sobel_h, true);
-  g.push_back(gpu_conv2(F, sobel_v, sobel_h));
+  V = gpu_conv2(F, sobel_v, sobel_h);
   // horizontal
   gpu_edgesobel2(sobel_v, sobel_h, false);
-  g.push_back(gpu_conv2(F, sobel_v, sobel_h));
-  return g;
+  H = gpu_conv2(F, sobel_v, sobel_h);
 }
 
 __global__ void GPU_eucdist(float *C, float *A, float *B, int n_rows, int n_cols) {
@@ -185,7 +202,7 @@ __global__ void GPU_eucdist(float *C, float *A, float *B, int n_rows, int n_cols
   C[IJ2C(i, j, n_rows)] = sqrtf(dx * dx + dy * dy);
 }
 
-__global__ void GPU_minthresh2(float *G, float *F, int n_rows, int n_cols, float minthresh) {
+__global__ void GPU_minthresh2(float *G, float *F, int n_rows, int n_cols, float minthresh) { // TODO
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
@@ -201,17 +218,40 @@ gcube gpu_edge2(const gcube &F, int n, double sigma2) {
   gpu_gauss2(V, H, n, sigma2);
   gcube G = gpu_conv2(F, V, H);
   // get gradients
-  std::vector<gcube> dxdy = gpu_gradient2(G);
+  gpu_gradient2(G, V, H);
   // grab the eucdist
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
   GPU_eucdist<<<gridSize, blockSize>>>(G.d_pixels, dxdy[0].d_pixels, dxdy[1].d_pixels, G.n_rows, G.n_cols);
   // do nonmaximal suppression, then thresholding
-  gpu_nmm2(G, dxdy[0], dxdy[1]);
+  gpu_nmm2(G, V, H);
   // TODO: make adaptive thresholding
   GPU_minthresh2<<<gridSize, blockSize>>>(G.d_pixels, G.d_pixels, G.n_rows, G.n_cols, 0.4);
   return G;
 }
+
+gcube gpu_LoG2(const gcube &F, int n, double sigma2) {
+  gcube V, H;
+  // smooth first
+  gpu_gauss2(V, H, n, sigma2);
+  gcube G = gpu_conv2(F, V, H);  // TODO: correct conv_sym
+  GPU_sub(G, F, G, G.n_rows, G.n_cols);
+  return G;
+}
+
+/*__global__ void GPU_blob2(float *centroid, float *F, int iteration, int n_rows, int n_cols) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  if (i >= n_rows || j >= n_cols) {
+    return;
+  }
+  // 
+}
+
+gcube gpu_blob2(const gcube &F, double sigma2, const gcube &color) {
+  gcube visited(F.n_rows, F.n_cols, 1, gfill::zeros);
+  
+}*/
 
 void gpu_cornersobel2(gcube &V, gcube &H) { // change to vector
   V.create(3);
@@ -257,12 +297,12 @@ gcube gpu_nmm2(const gcube &F, const gcube &Fx, const gcube &Fy) {
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
   GPU_nmm2<<<gridSize, blockSize>>>
-    (G.d_pixels, F.d_pixels, Fx.d_pixels, Fy.d_pixels, F.n_rows, F.n_cols);
+      (G.d_pixels, F.d_pixels, Fx.d_pixels, Fy.d_pixels, F.n_rows, F.n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
 }
 
-__global__ void GPU_bilinear_filter2(float *G, float *F, int G_rows, int G_cols, int F_rows, int F_cols, int n_slices, float kr, float kc) {
+__global__ void GPU_bilinear_interpolate2(float *G, float *F, int G_rows, int G_cols, int F_rows, int F_cols, int n_slices, float kr, float kc) {
   // gather
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -310,8 +350,86 @@ gcube gpu_imresize2(const gcube &A, int m, int n) {
   double kc = (double)A.n_cols / (double)n;
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((G.n_cols-1)/16+1, (G.n_rows-1)/16+1, 1);
-  GPU_bilinear_filter2<<<gridSize, blockSize>>>(G.d_pixels, A.d_pixels,
+  GPU_bilinear_interpolate2<<<gridSize, blockSize>>>(G.d_pixels, A.d_pixels,
       G.n_rows, G.n_cols, A.n_rows, A.n_cols, A.n_slices, (float)kr, (float)kc);
   checkCudaErrors(cudaGetLastError());
   return G;
+}
+
+__global__ void GPU_k_cluster_setup(float *pts, float *centroids, float *interim,
+    int *count, int n_dim, int n_pts, int k) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= n_pts) {
+    return;
+  }
+  // once the function is entered, assume that
+  // we can function the clustering to behave on the following manner:
+  // 1) look at all the hypothesis centroids
+  // 2) a) place the corresponding matching centroid into the interim and count
+  float minerr = 0;
+  int errset = 0;
+  int index = 0;
+  float diff;
+  for (int kid = 0; kid < k; kid++) { // careful! branch
+    float interr = 0;
+    for (int dim = 0; dim < n_dim; dim++) {
+      diff = pts[IJ2C(dim, i, n_dim)] - centroids[IJ2C(dim, kid, n_dim)];
+      interr += diff * diff;
+    }
+    if (!errset || minerr > interr) {
+      errset = 1;
+      minerr = interr;
+      index = a;
+    }
+  }
+  // chunk of memory suppressed (bottleneck?)
+  for (int dim = 0; dim < n_dim; dim++) {
+    atomicAdd(&interim[IJ2C(dim, index, n_dim)], pts[IJ2C(dim, i, n_dim)]);
+  }
+  atomicAdd(&count[index], 1);
+}
+
+__global__ void GPU_k_cluster_commit(float *centroids, float *interim, int *count, int n_dim, int k) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= k) {
+    return;
+  }
+  // 2) b) commit the results into centroids
+  for (int dim = 0; dim < n_dim; dim++) {
+    centroids[IJ2C(dim, i, n_dim)] = interim[IJ2C(dim, i, n_dim)] / count[i];
+  }
+}
+
+void gpu_k_cluster(const gcube &S, int k, int niter, gcube &centroids, gcube &hyp, bool usehyp) {
+  // do a check against the size of the image
+  assert(S.n_rows == 3); // only work on RGB for now
+  assert(k <= 256 && k > 0); // only work with k <= 256 and k > 0
+  // generate randomized centers, hypotheses first
+  centroids.create(3, k);
+  if (usehyp) {
+    checkCudaErrors(cudaMemcpy(centroids.d_pixels, hyp.d_pixels,
+          3 * hyp.n_cols * sizeof(float), cudaMemcpyDeviceToDevice));
+  }
+  for (int j = 0; j + (int)hyp.size() < k; j++) {
+    checkCudaErrors(cudaMemcpy(&centroids.d_pixels[IJ2C(0, j, 3)], &S.d_pixels[IJ2C(0, j, 3)],
+          3 * sizeof(float), cudaMemcpyDeviceToDevice));
+  }
+  // once the hypotheses have been generated
+  // call the gpu call for clustering, then redecide the cluster
+  gcube interim(3, k);
+  int *pcount;
+  checkCudaErrors(cudaMalloc(&pcount, sizeof(int) * k));
+  for (int iter = 0; iter < niter; iter++) {
+    checkCudaErrors(cudaMemset(interim.d_pixels, 0, sizeof(float) * 3 * k));
+    checkCudaErrors(cudaMemset(pcount, 0, sizeof(int) * k));
+    dim3 blockSize(256, 1, 1);
+    dim3 gridSize((S.n_cols-1)/256+1, 1, 1);
+    GPU_k_cluster_setup<<<gridSize, blockSize>>>(S.d_pixels, centroids.d_pixels, interim.d_pixels,
+        pcount, 3, S.n_cols, k);
+    checkCudaErrors(cudaGetLastError());
+    gridSize.x = 1;
+    GPU_k_cluster_commit<<<gridSize, blockSize>>>(centroids.d_pixels, interim.d_pixels, pcount, 3, k);
+    checkCudaErrors(cudaGetLastError());
+  }
+  checkCudaErrors(cudaFree(pcount));
 }

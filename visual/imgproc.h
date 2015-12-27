@@ -35,10 +35,12 @@ arma::mat laplace_gauss2(arma::uword n, double sigma2);
  *  @param isDoG (optional) use the difference of gauss operator
  *  @return the edge matrix
  */
-arma::mat edge2(const arma::mat &F, arma::uword n, double sigma2,
+arma::mat edge2(const arma::mat &F, arma::uword n = 7, double sigma2 = 0.5,
     bool isSobel = false, bool isDoG = true);
-arma::mat edge2(const arma::cube &F, arma::uword n, double sigma2,
+arma::cube edge2(const arma::cube &F, arma::uword n = 7, double sigma2 = 0.5,
     bool isSobel = false, bool isDoG = true);
+
+void blob2(const arma::mat &F, std::vector<arma::vec> &centroids);
 
 /** Generate a gradient matrix of a grayscale image.
  *  @param F the image to find the gradient of
@@ -58,15 +60,26 @@ arma::mat nmm2(const arma::mat &F, arma::uword nsize = 1, bool min_en = false, b
  *  @param k the number of clusters
  *  @return a set of cluster centers, each column being a center
  */
-arma::mat k_cluster(const arma::mat &S, arma::uword k);
+arma::mat k_cluster(const arma::mat &S, arma::uword k, int niter,
+    std::vector<arma::vec> &centroids,
+    std::vector<arma::vec> hyp = std::vector<arma::vec>(),
+    bool usehyp = false);
 
 /** Generate a segmented picture based on the k clustered histogram.
  *  @param F the image to segment
  *  @param k the number of color values
  *  @return the clustered image
  */
-arma::mat hist_segment2(const arma::mat &F, arma::uword k);
-arma::cube hist_segment2(const arma::cube &F, arma::uword k);
+arma::mat hist_segment2(const arma::mat &F, arma::uword k,
+    std::vector<arma::vec> &centroids,
+    int niter = 10,
+    std::vector<arma::vec> hyp = std::vector<arma::vec>(),
+    bool usehyp = false);
+arma::cube hist_segment2(const arma::cube &F, arma::uword k,
+    std::vector<arma::vec> &centroids,
+    int niter = 10,
+    std::vector<arma::vec> hyp = std::vector<arma::vec>(),
+    bool usehyp = false);
 
 /** Get the sum of absolute differences of two patches.
  *  @param I1 the first patch
