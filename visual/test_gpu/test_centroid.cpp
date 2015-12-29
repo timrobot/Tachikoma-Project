@@ -1,14 +1,18 @@
-#include "gcube.h"
 #include "gpu_util.h"
+#include "gcube.h"
 #include "highgui.h"
 #include "imgproc.h"
+#include "centroid.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
+
+using namespace std;
 
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("usage: %s [image name]\n", argv[0]);
-    return 1;
-  }
-
-  gcube I({ 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+  gcube I(15, 20, 1, gfill::ones);
+  double x, y;
+  gpu_centroid(I, x, y);
+  cout << x << ", " << y << endl;
   return 0;
 }

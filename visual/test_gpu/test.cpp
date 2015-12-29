@@ -6,7 +6,7 @@
 using namespace arma;
 using namespace std;
 
-mat weight_avg(mat I) {
+gcube weight_avg(mat I) {
   mat coeff = reshape(mat({
     1, 2, 1,
     2, 4, 2,
@@ -44,7 +44,6 @@ int main() {
 
   // (hand wavy) derivative
   mat e = gray - blurred;
-
 
   e /= e.max();
   disp_image("edges", e);

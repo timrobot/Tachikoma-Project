@@ -6,16 +6,9 @@ LIBS = -L/usr/local/lib \
 			 -lopencv_highgui \
 			 -lopencv_imgproc \
 			 -lopencv_videoio \
-			 -lopencv_imgcodecs \
-			 -lopencv_calib3d \
-			 -lopencv_features2d \
-			 -lopencv_xfeatures2d \
-			 -lopencv_flann \
-			 -lopencv_line_descriptor \
-			 -lopencv_stitching \
-			 -larmadillo
-OBJS = highgui.o imgproc.o gcube.o
-TEST = test test_centroid
+			 -lopencv_imgcodecs
+OBJS = highgui.o imgproc.o gcube.o gpu_util.o
+TEST = test_centroid
 
 all: $(OBJS) $(TEST)
 
@@ -25,11 +18,11 @@ test: test.o $(OBJS)
 test.o: test.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $<
 
-test_centroid: centroid.o $(OBJS)
+test_centroid: $(OBJS) centroid.o test_centroid.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 test_centroid.o: test_centroid.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 imgproc.o: imgproc.cu
 	$(CC) $(CFLAGS) -o $@ -c $<
@@ -38,6 +31,12 @@ highgui.o: highgui.cu
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 gcube.o: gcube.cu
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+centroid.o: centroid.cu
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+gpu_util.o: gpu_util.cu
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
