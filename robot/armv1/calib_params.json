@@ -1,0 +1,32 @@
+{
+  "shoulder_yaw": {
+    "min": 300,
+    "max": 740,
+    "reversed": false
+  },
+  "shoulder_pitch": {
+    "min": 300,
+    "max": 740,
+    "reversed": false
+  },
+  "elbow_pitch": {
+    "min": 300,
+    "max": 740,
+    "reversed": false
+  },
+  "wrist_pitch": {
+    "min": 300,
+    "max": 740,
+    "reversed": false
+  },
+  "wrist_roll": {
+    "min": 300,
+    "max": 740,
+    "reversed": false
+  },
+  "hand_open": {
+    "min": 300,
+    "max": 740,
+    "reversed": false
+  }
+}

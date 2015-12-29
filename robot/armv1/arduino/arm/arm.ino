@@ -57,12 +57,17 @@ void setmotors(int *v) { // 6 numbers
 }
 
 void setup() {
+  
+  Serial.begin(57600);
+  
+  //Serial.println("setting up motors");
   for (int i = 0; i < 4; i++) {
     motors[i] = AFMS_bot.getMotor(i + 1);
     motors[4 + i] = AFMS_top.getMotor(i + 1);
   }
   claw.attach(3);
 
+  //Serial.println("setting up pid");
   for (int i = 0; i < 6; i++) {
     pinMode(A0 + i, INPUT);
     pospid[i] = new PID(&in[i], &out[i], &pos[i], 2.0, 5.0, 1.0, DIRECT);
@@ -73,12 +78,16 @@ void setup() {
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 
+  //Serial.println("doing rest of init");
   AFMS_bot.begin();
   AFMS_top.begin();
+  
+  //Serial.println("sending motor values");
   setmotors(vel);
-  Serial.begin(57600);
   msecs = millis();
   timeout = millis();
+  
+  //Serial.println("done init");
 }
 
 static int targetv[2];
@@ -108,12 +117,12 @@ void loop() {
         // CUSTOMIZE (set the setpoint)
         sscanf(s, "[%d %d %d %d %d %d %d]\n",
           &move_en,
-          &pos[0],
-          &pos[1],
-          &pos[2],
-          &pos[3],
-          &pos[4],
-          &pos[5]);
+          &vel[0],
+          &vel[1],
+          &vel[2],
+          &vel[3],
+          &vel[4],
+          &vel[5]);
         timeout = millis();
         if (!pid_en && move_en) {
           for (int i = 0; i < 6; i++) {
@@ -142,11 +151,11 @@ void loop() {
 
   // Update the PID
   for (int i = 0; i < 6; i++) {
-    in[i] = analogRead(A0 + i);
+    /*in[i] = analogRead(A0 + i);
     pospid[i]->Compute();
     if (pid_en && move_en) {
       vel[i] = out[i] - in[i];
-    }
+    }*/
   }
 
   // push the values to the motors

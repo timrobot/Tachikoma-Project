@@ -63,7 +63,7 @@ int main() {
   bool velocity_en = false;
   memset(key_pressed, 0, 26 * sizeof(char));
 
-  arm_pos = arm.sense();
+  bool initial_set = false;
 
   while (!stopsig) {
     SDL_Event event;
@@ -121,6 +121,17 @@ int main() {
     // send over the values to the robot
     cout << "calibrated? " << arm.calibrated() << endl;
 
+    if (!initial_set) {
+      arma::mat s = arm.sense().t();
+      if (accu(s) == 0) {
+        printf("error: cannot read the arm sensors\n");
+      } else {
+        printf("setting arm to read sensor values\n");
+        arm_pos = s;
+        initial_set = true;
+      }
+    }
+
     int k_q = key_pressed[KEYID('q')];
     int k_a = key_pressed[KEYID('a')];
     int k_w = key_pressed[KEYID('w')];
@@ -143,15 +154,15 @@ int main() {
       arm_vel(4) = (k_o - k_k);
       arm_vel(5) = (k_p - k_l);
       cout << arm_vel << endl;
-    } else if (position_en) {
+    } else if (position_en && initial_set) {
       printf("position enabled\n");
       arm_pos += vec({
-          (k_q - k_a),
-          (k_w - k_s),
-          (k_e - k_d),
-          (k_i - k_j),
-          (k_o - k_k),
-          (k_p - k_l) }) * 0.001;
+          (double)(k_q - k_a),
+          (double)(k_w - k_s),
+          (double)(k_e - k_d),
+          (double)(k_i - k_j),
+          (double)(k_o - k_k),
+          (double)(k_p - k_l) }).t() * 0.01;
       printf("Angles:\n");
       cout << arm_pos << endl;
     } else {

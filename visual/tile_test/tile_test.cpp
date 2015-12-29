@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
   Mat img1 = imread("img01.png");
   Mat img2 = imread("test00.png");
 
-  arma::cube I2 = filter_obj(cvt_opencv2arma(img1) / 255, cvt_opencv2arma(img2) / 255);
+//  arma::cube I2 = filter_obj(cvt_opencv2arma(img1) / 255, cvt_opencv2arma(img2) / 255);
 //  arma::mat g = cvt_rgb2gray(I2);
 
 //  disp_image("segmented image", g);
@@ -131,7 +131,8 @@ int main(int argc, char *argv[]) {
   // histogram algorithm here
   //
 
-  arma::mat g = cvt_rgb2gray(I2);
+  //arma::mat g = cvt_rgb2gray(I2);
+  arma::mat g = arma::ones<arma::mat>(15, 20);
   int grows = g.n_rows;
   int gcols = g.n_cols;
   vector<int> colshist(gcols), rowshist(grows);
@@ -157,11 +158,12 @@ int main(int argc, char *argv[]) {
   }
   double centroidx = (double)xeti/(double)xsum;
 
-  I2((int)centroidy, (int)centroidx, 0) = 1;
+/*  I2((int)centroidy, (int)centroidx, 0) = 1;
   I2((int)centroidy, (int)centroidx, 1) = 0;
   I2((int)centroidy, (int)centroidx, 2) = 0;
   disp_image("centroids?", I2);
-  disp_wait();
+  disp_wait();*/
+  cout << centroidx << ", " << centroidy << endl;
 
   return 0;
 }

@@ -5,21 +5,25 @@
 
 namespace visual {
 
-  /** Initialize the visual space,
-   *  such as the camera and/or other depth sensors.
+  /** Initialize the visual space
    */
   void init(void);
 
   /** Check to see if the camera has been initialized
    *  @return true if a camera was found, else false
    */
-  bool hasCamera(void);
+  bool camera_opened(void);
 
-  /** Get the type of the camera
+  /** Check to see if the depth has been initialized
    * 
    */
-  bool hasDepth(void);
-  
+  bool depth_opened(void);
+
+  /** Try to grab a depth frame
+   *  @return an error code if the depth frame cannot be accessed
+   */
+  int get_depth(arma::mat &depth_frame);
+
 }
 
 #endif

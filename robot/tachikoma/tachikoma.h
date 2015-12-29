@@ -143,6 +143,38 @@ class Tachikoma : public BaseRobot {
         arma::mat &leg_sensors,
         arma::mat &leg_feedback);
 
+    /** easier than move
+     */
+    void set_motors(
+        const double top_left_waist_vel,
+        const double top_right_waist_vel,
+        const double bottom_left_waist_vel,
+        const double bottom_right_waist_vel,
+        const double top_left_thigh_vel,
+        const double top_right_thigh_vel,
+        const double bottom_left_thigh_vel,
+        const double bottom_right_thigh_vel,
+        const double top_left_wheel_vel,
+        const double top_right_wheel_vel,
+        const double bottom_left_wheel_vel,
+        const double bottom_right_wheel_vel,
+        const double top_left_waist_pos,
+        const double top_right_waist_pos,
+        const double bottom_left_waist_pos,
+        const double bottom_right_waist_pos,
+        const double top_left_thigh_pos,
+        const double top_right_thigh_pos,
+        const double bottom_left_thigh_pos,
+        const double bottom_right_thigh_pos,
+        const double top_left_wheel_pos,
+        const double top_right_wheel_pos,
+        const double bottom_left_wheel_pos,
+        const double bottom_right_wheel_pos);
+
+    // updated on send
+    arma::mat leg_write;
+    // updated on recv
+
     // updated on send
     arma::mat leg_write;
     // updated on recv

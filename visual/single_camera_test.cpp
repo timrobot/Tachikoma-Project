@@ -1,5 +1,5 @@
-#include <opencv3/core/core.hpp>
-#include <opencv3/highgui/highgui.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 int main(int argc, char *argv[]) {
   // autodetect and open the video capture device

@@ -23,11 +23,6 @@ gcube::gcube(const std::string &fname) {
   this->load(fname);
 }
 
-//gcube::gcube(const std::vector<float> list) {
-//  this->d_pixels = NULL;
-//  this->create(list);
-//}
-
 gcube::~gcube(void) {
   if (this->d_pixels) {
     checkCudaErrors(cudaFree(this->d_pixels));
