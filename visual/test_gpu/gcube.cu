@@ -18,10 +18,21 @@ gcube::gcube(const gcube &gpucube) {
   checkCudaErrors(cudaMemcpy(this->d_pixels, gpucube.d_pixels, this->n_elem * sizeof(float), cudaMemcpyDeviceToDevice));
 }
 
+gcube::gcube(const gcube *gpucube) {
+  this->d_pixels = NULL;
+  this->create(gpucube->n_rows, gpucube->n_cols, gpucube->n_slices, gfill::none);
+  checkCudaErrors(cudaMemcpy(this->d_pixels, gpucube->d_pixels, this->n_elem * sizeof(float), cudaMemcpyDeviceToDevice));
+}
+
 gcube::gcube(const std::string &fname) {
   this->d_pixels = NULL;
   this->load(fname);
 }
+
+//gcube::gcube(const std::vector<float> list) {
+//  this->d_pixels = NULL;
+//  this->create(list);
+//}
 
 gcube::~gcube(void) {
   if (this->d_pixels) {
