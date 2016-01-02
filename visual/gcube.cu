@@ -1,4 +1,4 @@
-#include <opencv3/highgui/highgui.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include "gcube.h"
 #include "gpu_util.h"
 
@@ -22,11 +22,6 @@ gcube::gcube(const std::string &fname) {
   this->d_pixels = NULL;
   this->load(fname);
 }
-
-//gcube::gcube(const std::vector<float> list) {
-//  this->d_pixels = NULL;
-//  this->create(list);
-//}
 
 gcube::~gcube(void) {
   if (this->d_pixels) {
