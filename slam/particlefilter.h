@@ -46,4 +46,24 @@ class ParticleFilter {
     void resample(void);
 };
 
+#ifdef __NVCC__
+
+#include "gpumap.h"
+#include "gridmap.h"
+#include "landmark.h"
+
+class GpuParticleFilter {
+  public:
+    GpuParticleFilter(void);
+    ~GpuParticleFilter(void);
+    void set_landmark_map(GpuLandmarkMap *map);
+    void set_gridmap(GpuGridMap *map);
+    void set_initial_loc(float x, float y, float sxx, float sxy, float syy);
+
+    GpuMap *map;
+    gcube pfilt;
+};
+
+#endif
+
 #endif

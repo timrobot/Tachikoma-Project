@@ -78,7 +78,7 @@ __global__ void GPU_conv2_Hy(float *G, float *F, float *Hy, int F_n_rows, int F_
   G[IJ2C(i, j, F_n_rows)] = total / weight;
 } 
 
-__global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_n_cols, int H_n_cols) P
+__global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_n_cols, int H_n_cols) {
   // assume that the matrix represents an image
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int i = blockIdx.y * blockDim.y + threadIdx.y;
