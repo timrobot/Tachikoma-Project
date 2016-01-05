@@ -63,7 +63,7 @@ __global__ void GPU_conv2_Hy(float *G, float *F, float *Hy, int F_n_rows, int F_
   }
   // stencil operation
   int mi = H_n_rows / 2;
-  int mj = H_n_cols / 2;
+  //  int mj = H_n_cols / 2;
 
   // for now just use a for loop
   float total = 0.0f;
@@ -86,7 +86,7 @@ __global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_
     return;
   }
   // stencil operation
-  int mi = H_n_rows / 2;
+  //  int mi = H_n_rows / 2;
   int mj = H_n_cols / 2;
 
   // forst now just use a for loop
@@ -222,7 +222,7 @@ gcube gpu_edge2(const gcube &F, int n, double sigma2) {
   // grab the eucdist
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
-  GPU_eucdist<<<gridSize, blockSize>>>(G.d_pixels, dxdy[0].d_pixels, dxdy[1].d_pixels, G.n_rows, G.n_cols);
+  GPU_eucdist<<<gridSize, blockSize>>>(G.d_pixels, H.d_pixels, V.d_pixels, G.n_rows, G.n_cols);
   // do nonmaximal suppression, then thresholding
   gpu_nmm2(G, V, H);
   // TODO: make adaptive thresholding
@@ -234,8 +234,11 @@ gcube gpu_LoG2(const gcube &F, int n, double sigma2) {
   gcube V, H;
   // smooth first
   gpu_gauss2(V, H, n, sigma2);
-  gcube G = gpu_conv2(F, V, H);  // TODO: correct conv_sym
-  GPU_sub(G, F, G, G.n_rows, G.n_cols);
+  gcube G;
+  G.copy(gpu_conv2(F, V, H));  // TODO: correct conv_sym
+  dim3 blockSize(16, 16, 1);
+  dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
+  GPU_sub<<<gridSize, blockSize>>>(G.d_pixels, F.d_pixels, G.d_pixels, G.n_rows, G.n_cols);
   return G;
 }
 
@@ -243,14 +246,14 @@ gcube gpu_LoG2(const gcube &F, int n, double sigma2) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
-    return;
+  return;
   }
-  // 
+// 
 }
 
 gcube gpu_blob2(const gcube &F, double sigma2, const gcube &color) {
-  gcube visited(F.n_rows, F.n_cols, 1, gfill::zeros);
-  
+gcube visited(F.n_rows, F.n_cols, 1, gfill::zeros);
+
 }*/
 
 void gpu_cornersobel2(gcube &V, gcube &H) { // change to vector
@@ -297,7 +300,7 @@ gcube gpu_nmm2(const gcube &F, const gcube &Fx, const gcube &Fy) {
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
   GPU_nmm2<<<gridSize, blockSize>>>
-      (G.d_pixels, F.d_pixels, Fx.d_pixels, Fy.d_pixels, F.n_rows, F.n_cols);
+    (G.d_pixels, F.d_pixels, Fx.d_pixels, Fy.d_pixels, F.n_rows, F.n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
 }
@@ -379,7 +382,7 @@ __global__ void GPU_k_cluster_setup(float *pts, float *centroids, float *interim
     if (!errset || minerr > interr) {
       errset = 1;
       minerr = interr;
-      index = a;
+      index = kid;
     }
   }
   // chunk of memory suppressed (bottleneck?)
@@ -410,7 +413,7 @@ void gpu_k_cluster(const gcube &S, int k, int niter, gcube &centroids, gcube &hy
     checkCudaErrors(cudaMemcpy(centroids.d_pixels, hyp.d_pixels,
           3 * hyp.n_cols * sizeof(float), cudaMemcpyDeviceToDevice));
   }
-  for (int j = 0; j + (int)hyp.size() < k; j++) {
+  for (int j = 0; j + hyp.n_cols < k; j++) {
     checkCudaErrors(cudaMemcpy(&centroids.d_pixels[IJ2C(0, j, 3)], &S.d_pixels[IJ2C(0, j, 3)],
           3 * sizeof(float), cudaMemcpyDeviceToDevice));
   }
