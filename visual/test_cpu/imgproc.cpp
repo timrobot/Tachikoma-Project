@@ -116,10 +116,8 @@ mat edge2(const mat &F, uword n, double sigma2, bool isSobel, bool isDoG) {
   if (isSobel) {
     mat G = gauss2(n, sigma2);
     // smooth first
-    mat H = conv2(F, G);
-    vector<mat> dxdy = gradient2(H);
-    mat X = dxdy[0];
-    mat Y = dxdy[1];
+    mat H = conv2(F, G), X, Y;
+    gradient2(X, Y, H);
     G = sqrt(X % X + Y % Y);
     return G;
   } else if (isDoG) {
@@ -212,12 +210,14 @@ mat k_cluster(const mat &S, uword k) {
     for (uword j = 0; j < S.n_cols; j++) {
       // calculate the squared difference
       vec diff = cluster_ind[0] - S.col(j);
-      double min_val = sqrt(dot(diff, diff));
+      diff = diff.t() * diff;
+      double min_val = sqrt(diff(0));
       // find the most closely correlated cluster center
       uword min_ind = 0;
       for (uword i = 0; i < cluster_ind.size(); i++) {
         diff = cluster_ind[i] - S.col(j);
-        double interim = sqrt(dot(diff, diff));
+        diff = diff.t() * diff;
+        double interim = sqrt(diff(0));
         if (interim < min_val) {
           min_val = interim;
           min_ind = i;
@@ -257,10 +257,12 @@ mat hist_segment2(const mat &F, uword k) { // do mixture of gaussians later on?
       // find the minimum
       uword min_ind = 0;
       vec diff = H(i, j) - S.col(0);
-      double min_val = sqrt(dot(diff, diff));
+      diff = diff.t() * diff;
+      double min_val = sqrt(diff(0));
       for (uword k = 0; k < S.n_cols; k++) {
         diff = H(i, j) - S.col(k);
-        double interim = sqrt(dot(diff, diff));
+        double interim = sqrt(diff(0));
+        diff = diff.t() * diff;
         if (interim < min_val) {
           min_val = interim;
           min_ind = k;
@@ -293,10 +295,12 @@ cube hist_segment2(const cube &F, uword k) {
       }
       uword min_ind = 0;
       vec diff = RGB - S.col(0);
-      double min_val = sqrt(dot(diff, diff));
+      diff = diff.t() * diff;
+      double min_val = sqrt(diff(0));
       for (uword k = 0; k < S.n_cols; k++) {
         diff = RGB - S.col(k);
-        double interim = sqrt(dot(diff, diff));
+        diff = diff.t() * diff;
+        double interim = sqrt(diff(0));
         if (interim < min_val) {
           min_val = interim;
           min_ind = k;
@@ -330,7 +334,8 @@ double ncc2(const mat &I1, const mat &I2) {
 
 mat harris2(const mat &I, const mat &W) {
   assert(W.n_rows == W.n_cols);
-  std::vector<mat> G = gradient2(I); // grab the gradients
+  std::vector<mat> G(2);
+  gradient2(G[0], G[1], I); // grab the gradients
   // place gradients into padded matrix
   mat wIxx = conv2(G[0] % G[0], W);
   mat wIxy = conv2(G[0] % G[1], W);
@@ -469,10 +474,10 @@ vector< vector<mat> > gausspyr2(const mat &I, int noctaves, int nscales, double 
     for (int s = 0; s < nscales; s++) {
       double var = sigma2 * s;
       mat B;
-      if (i == 0) {
+      if (o == 0) {
         B = I;
       } else {
-        B = pyramid[l - 1][i];
+        B = pyramid[s - 1][o];
         B = imresize2(B, B.n_rows / 2, B.n_cols / 2);
       }
       octave.push_back(conv2(B, gauss2(kernel_size, var)));

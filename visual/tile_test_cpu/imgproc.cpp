@@ -260,7 +260,7 @@ mat k_cluster(const mat &S, uword k, int niter, vector<vec> &centroids, vector<v
   for (int iter = 0; iter < niter; iter++) {
     interim.zeros();
     memset(count, 0, sizeof(int) * k);
-    // :3 GPU
+    // :3 GPU part please
     for (int i = 0; i < S.n_cols; i++) {
       double minerr = 0;
       bool errset = false;

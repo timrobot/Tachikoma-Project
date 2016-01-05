@@ -34,26 +34,28 @@ int limit(int x, int a, int b) {
   }
 }
 
-void setmotors(int *v) { // 6 numbers
+void setmotors(int *v_) { // 6 numbers
   bool isneg[5];
+  int v[6];
+  int rev[8] = { 0, 0, 0, 1, 1, 0, 0, 1};
   for (int i = 0; i < 5; i++) {
-    isneg[i] = v[i] < 0;
-    v[i] = limit(abs(v[i]), 0, 255);
+    isneg[i] = v_[i] < 0;
+    v[i] = limit(abs(v_[i]), 0, 255);
   }
-  int motormap[8] = { 0, 0, 1, 1, 3, 4, 2, 2 };
+  int motormap[8] = { 0, 0, 1, 1, 4, 3, 2, 2 };
   for (int i = 0; i < 8; i++) {
     int vid = motormap[i];
     motors[i]->setSpeed(v[vid]);
     if (v[vid] == 0) {
       motors[i]->run(RELEASE);
     } else if (isneg[vid]) {
-      motors[i]->run(BACKWARD);
+      motors[i]->run(rev[i] ? FORWARD : BACKWARD);
     } else {
-      motors[i]->run(FORWARD);
+      motors[i]->run(rev[i] ? BACKWARD : FORWARD);
     }
   }
   v[5] = limit(v[5], -90, 90);
-  claw.write(v[5] + 90);
+  claw.write(90);
 }
 
 void setup() {
@@ -68,12 +70,13 @@ void setup() {
   claw.attach(3);
 
   //Serial.println("setting up pid");
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 5; i++) {
     pinMode(A0 + i, INPUT);
     pospid[i] = new PID(&in[i], &out[i], &pos[i], 2.0, 5.0, 1.0, DIRECT);
-    pospid[i]->SetOutputLimits(0, 1024); // pot range
+    pospid[i]->SetOutputLimits(125, 900); // pot range
     in[i] = analogRead(A0 + i);
   }
+  pinMode(A5, INPUT);
 
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
@@ -117,15 +120,15 @@ void loop() {
         // CUSTOMIZE (set the setpoint)
         sscanf(s, "[%d %d %d %d %d %d %d]\n",
           &move_en,
-          &vel[0],
-          &vel[1],
-          &vel[2],
-          &vel[3],
-          &vel[4],
-          &vel[5]);
+          &pos[0],
+          &pos[1],
+          &pos[2],
+          &pos[3],
+          &pos[4],
+          &pos[5]);
         timeout = millis();
         if (!pid_en && move_en) {
-          for (int i = 0; i < 6; i++) {
+          for (int i = 0; i < 5; i++) {
             pospid[i]->SetMode(AUTOMATIC);
           }
           pid_en = true;
@@ -139,7 +142,7 @@ void loop() {
   if (millis() - timeout > 500 || !move_en) {
     // after .5 seconds, stop the robot
     if (pid_en) {
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < 5; i++) {
         pospid[i]->SetMode(MANUAL);
       }
       pid_en = false;
@@ -150,12 +153,12 @@ void loop() {
   }
 
   // Update the PID
-  for (int i = 0; i < 6; i++) {
-    /*in[i] = analogRead(A0 + i);
+  for (int i = 0; i < 5; i++) {
+    in[i] = analogRead(A0 + i);
     pospid[i]->Compute();
     if (pid_en && move_en) {
       vel[i] = out[i] - in[i];
-    }*/
+    }
   }
 
   // push the values to the motors
