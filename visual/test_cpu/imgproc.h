@@ -140,10 +140,26 @@ gcube gpu_conv2(const gcube &F, const gcube &V, const gcube &H);
 gcube gpu_gauss2(int n, double sigma2);
 void gpu_gauss2(gcube &V, gcube &H, int n, double sigma2);
 
-void gpu_edgesobel2(gcube &V, gcube &H, bool isVert);
+/** GPU Find the edges of an image using the sobel operator
+ *  @param V the vertical kernel
+ *  @param H the horizontal kernel
+ *  @param isVert (optional) is vertical kernel parameter
+ */
+void gpu_edgesobel2(gcube &V, gcube &H, bool isVert = true);
 
-std::vector<gcube> gpu_gradient2(const gcube &F);
+/** GPU Find the gradient of an image
+ *  @param F (input) the image
+ *  @param DX (output) the image gradient in the x direction
+ *  @param DY (output) the image gradient in the y direction
+ */
+void gpu_gradient2(const gcube &F, gcube &DX, gcube &DY);
 
+/** Find the edges using the Laplacian of gauss
+ *  @param F the image
+ *  @param n blur kernel size
+ *  @param sigma2 blur kernel sigma
+ *  @return an edge matrix
+ */
 gcube gpu_edge2(const gcube &F, int n, double sigma2);
 
 void gpu_cornersobel2(gcube &V, gcube &H);

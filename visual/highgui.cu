@@ -4,9 +4,35 @@
 #include "highgui.h"
 #include "gpu_util.h"
 
+gcube load_gcube(const std::string &image_name) {
+  gcube G;
+  G.load(image_name);
+  return G;
+}
+
+void save_gcube(const std::string &image_name, gcube &image) {
+  image.save(image_name);
+}
+
+void print_gcube(gcube &image) {
+  float *mem = new float[image.n_elem];
+  checkCudaErrors(cudaMemcpy(mem, image.d_pixels, sizeof(float) * image.n_elem, cudaMemcpyDeviceToHost));
+  for (int k = 0; k < image.n_slices; k++) {
+    printf("slice %d\n", k);
+    for (int j = 0; j < image.n_cols; j++) {
+      for (int i = 0; i < image.n_rows; i++) {
+        printf("%f, ", mem[IJK2C(i, j, k, image.n_rows, image.n_cols)]);
+      }
+      printf("\n");
+    }
+    printf("\n");
+  }
+  delete mem;
+}
+
 void disp_gcube(const std::string &window_name, gcube &image) {
   cv::namedWindow(window_name);
-  cv::Mat I = image.cv_mat();
+  cv::Mat I = image.cv_img();
   cv::imshow(window_name, I);
 }
 
@@ -19,8 +45,8 @@ int disp_keyPressed(void) {
 }
 
 __global__ void GPU_rgb2gray(float *G, float *F, int n_rows, int n_cols) {
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
     return;
   }
@@ -33,7 +59,7 @@ __global__ void GPU_rgb2gray(float *G, float *F, int n_rows, int n_cols) {
 gcube gpu_rgb2gray(const gcube &image) {
   assert(image.n_slices == 3);
   gcube G(image.n_rows, image.n_cols, 1);
-  dim3 gridSize((image.n_cols-1)/16+1, (image.n_rows-1)/16+1, 1);
+  dim3 gridSize((image.n_rows-1)/16+1, (image.n_cols-1)/16+1, 1);
   dim3 blockSize(16, 16, 1);
   GPU_rgb2gray<<<gridSize, blockSize>>>(
         G.d_pixels, image.d_pixels,

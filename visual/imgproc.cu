@@ -13,37 +13,37 @@
 
 __global__ void GPU_conv2_gen(float *G, float *F, float *H, int F_n_rows, int F_n_cols, int H_n_rows, int H_n_cols) {
   // assume that the matrix represents an image
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int idy = blockIdx.y * blockDim.y + threadIdx.y;
-  if (idx >= F_n_cols || idy >= F_n_rows) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  if (i >= F_n_rows || j >= F_n_cols) {
     return;
   }
   // stencil operation
-  int my = H_n_rows / 2;
-  int mx = H_n_cols / 2;
+  int mi = H_n_rows / 2;
+  int mj = H_n_cols / 2;
 
   // call kernel? for now just use a for loop
   float total = 0.0f;
   float weight = 0.0f;
-  int _i, _j, i, j;
-  for (i = 0; i < H_n_rows; i++) {
-    for (j = 0; j < H_n_cols; j++) {
-      _i = idy + my - i;
-      _j = idx + mx - j;
+  int _i, _j, i_, j_;
+  for (i_ = 0; i_ < H_n_rows; i_++) {
+    for (j_ = 0; j_ < H_n_cols; j_++) {
+      _i = i + mi - i_;
+      _j = j + mj - j_;
       if (_i >= 0 && _i < F_n_rows && _j >= 0 && _j < F_n_cols) {
-        total += H[IJ2C(i, j, H_n_rows)] * F[IJ2C(_i, _j, F_n_rows)];
-        weight += H[IJ2C(i, j, H_n_rows)];
+        total += H[IJ2C(i_, j_, H_n_rows)] * F[IJ2C(_i, _j, F_n_rows)];
+        weight += H[IJ2C(i_, j_, H_n_rows)];
       }
     }
   }
-  G[IJ2C(idy, idx, F_n_rows)] = total / weight;
+  G[IJ2C(i, j, F_n_rows)] = total; // / weight;
 }
 
 gcube gpu_conv2(const gcube &F, const gcube &K) {
   gcube G(F.n_rows, F.n_cols, F.n_slices);
   for (int k = 0; k < F.n_slices; k++) {
     dim3 blockSize(16, 16, 1);
-    dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
+    dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
     // call the GPU kernel
     GPU_conv2_gen<<<gridSize, blockSize>>>(
         &G.d_pixels[IJK2C(0, 0, k, F.n_rows, F.n_cols)],
@@ -54,22 +54,22 @@ gcube gpu_conv2(const gcube &F, const gcube &K) {
   return G;
 }
 
-__global__ void GPU_conv2_Hy(float *G, float *F, float *Hy, int F_n_rows, int F_n_cols, int H_n_rows) {
+/*__global__ void GPU_conv2_Hy(float *G, float *F, float *Hy, int F_n_rows, int F_n_cols, int H_n_rows) {
   // assume that the matrix represents an image
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (j >= F_n_cols || i >= F_n_rows) {
     return;
   }
   // stencil operation
   int mi = H_n_rows / 2;
-  int mj = H_n_cols / 2;
+  //  int mj = H_n_cols / 2;
 
   // for now just use a for loop
   float total = 0.0f;
   float weight = 0.0f;
-  for (int hi = 0; hi < H_n_rows; hi++) {
-    int fi = i + mi - hi;
+  for (int i_ = 0; i_ < H_n_rows; i_++) {
+    int _i = i + mi - i_;
     if (fi >= 0 && fi < F_n_rows) {
       total += Hy[hi] * F[IJ2C(fi, j, F_n_rows)];
       weight += Hy[hi];
@@ -78,15 +78,15 @@ __global__ void GPU_conv2_Hy(float *G, float *F, float *Hy, int F_n_rows, int F_
   G[IJ2C(i, j, F_n_rows)] = total / weight;
 } 
 
-__global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_n_cols, int H_n_cols) P
+__global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_n_cols, int H_n_cols) {
   // assume that the matrix represents an image
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (j >= F_n_cols || i >= F_n_rows) {
     return;
   }
   // stencil operation
-  int mi = H_n_rows / 2;
+  //  int mi = H_n_rows / 2;
   int mj = H_n_cols / 2;
 
   // forst now just use a for loop
@@ -100,13 +100,13 @@ __global__ void GPU_conv2_Hx(float *G, float *F, float *Hx, int F_n_rows, int F_
     }
   }
   G[IJ2C(i, j, F_n_rows)] = total / weight;
-}
+}*/
 
 gcube gpu_conv2(const gcube &F, const gcube &V, const gcube &H) {
   gcube G(F.n_rows, F.n_cols, F.n_slices);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
-  for (int k = 0; k < F.n_slices; k++) {
+  dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
+/*  for (int k = 0; k < F.n_slices; k++) {
     // call the GPU kernel
     GPU_conv2_Hy<<<gridSize, blockSize>>>(
         &G.d_pixels[IJK2C(0, 0, k, G.n_rows, G.n_cols)],
@@ -118,7 +118,7 @@ gcube gpu_conv2(const gcube &F, const gcube &V, const gcube &H) {
         &F.d_pixels[IJK2C(0, 0, k, F.n_rows, F.n_cols)],
         H.d_pixels, F.n_rows, F.n_cols, H.n_rows);
     checkCudaErrors(cudaGetLastError());
-  }
+  }*/
   return G;
 }
 
@@ -126,7 +126,7 @@ gcube gpu_gauss2(int n, double sigma2) {
   assert(n > 0);
   gcube H(n, n);
   float h_pixels[n * n];
-  float total = 0.0;
+  float total = 0.0f;
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
       double x = (double)i - ((double)(n-1)/2);
@@ -150,7 +150,7 @@ void gpu_gauss2(gcube &V, gcube &H, int n, double sigma2) {
   V.create(n);
   H.create(n);
   float h_pixels[n];
-  float total = 0.0;
+  float total = 0.0f;
   for (int i = 0; i < n; i++) {
     double x = (double)i - ((double)(n-1)/2);
     float g = (float)exp(-(x * x) / (2 * sigma2));
@@ -192,8 +192,8 @@ void gpu_gradient2(const gcube &F, gcube &V, gcube &H) {
 }
 
 __global__ void GPU_eucdist(float *C, float *A, float *B, int n_rows, int n_cols) {
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
     return;
   }
@@ -203,8 +203,8 @@ __global__ void GPU_eucdist(float *C, float *A, float *B, int n_rows, int n_cols
 }
 
 __global__ void GPU_minthresh2(float *G, float *F, int n_rows, int n_cols, float minthresh) { // TODO
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
     return;
   }
@@ -221,8 +221,8 @@ gcube gpu_edge2(const gcube &F, int n, double sigma2) {
   gpu_gradient2(G, V, H);
   // grab the eucdist
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
-  GPU_eucdist<<<gridSize, blockSize>>>(G.d_pixels, dxdy[0].d_pixels, dxdy[1].d_pixels, G.n_rows, G.n_cols);
+  dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
+  GPU_eucdist<<<gridSize, blockSize>>>(G.d_pixels, H.d_pixels, V.d_pixels, G.n_rows, G.n_cols);
   // do nonmaximal suppression, then thresholding
   gpu_nmm2(G, V, H);
   // TODO: make adaptive thresholding
@@ -235,7 +235,9 @@ gcube gpu_LoG2(const gcube &F, int n, double sigma2) {
   // smooth first
   gpu_gauss2(V, H, n, sigma2);
   gcube G = gpu_conv2(F, V, H);  // TODO: correct conv_sym
-  GPU_sub(G, F, G, G.n_rows, G.n_cols);
+  dim3 blockSize(16, 16, 1);
+  dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
+  GPU_sub<<<gridSize, blockSize>>>(G.d_pixels, F.d_pixels, G.d_pixels, G.n_rows, G.n_cols);
   return G;
 }
 
@@ -243,14 +245,14 @@ gcube gpu_LoG2(const gcube &F, int n, double sigma2) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
-    return;
+  return;
   }
-  // 
+// 
 }
 
 gcube gpu_blob2(const gcube &F, double sigma2, const gcube &color) {
-  gcube visited(F.n_rows, F.n_cols, 1, gfill::zeros);
-  
+gcube visited(F.n_rows, F.n_cols, 1, gfill::zeros);
+
 }*/
 
 void gpu_cornersobel2(gcube &V, gcube &H) { // change to vector
@@ -273,8 +275,8 @@ gcube gpu_corner2(const gcube &F, int n, double sigma2) {
 }
 
 __global__ void GPU_nmm2(float *G, float *F, float *Fx, float *Fy, int n_rows, int n_cols) {
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= n_rows || j >= n_cols) {
     return;
   }
@@ -295,17 +297,17 @@ __global__ void GPU_nmm2(float *G, float *F, float *Fx, float *Fy, int n_rows, i
 gcube gpu_nmm2(const gcube &F, const gcube &Fx, const gcube &Fy) {
   gcube G(F.n_rows, F.n_cols);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
+  dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
   GPU_nmm2<<<gridSize, blockSize>>>
-      (G.d_pixels, F.d_pixels, Fx.d_pixels, Fy.d_pixels, F.n_rows, F.n_cols);
+    (G.d_pixels, F.d_pixels, Fx.d_pixels, Fy.d_pixels, F.n_rows, F.n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
 }
 
 __global__ void GPU_bilinear_interpolate2(float *G, float *F, int G_rows, int G_cols, int F_rows, int F_cols, int n_slices, float kr, float kc) {
   // gather
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
   if (i >= G_rows || j >= G_cols) {
     return;
   }
@@ -349,7 +351,7 @@ gcube gpu_imresize2(const gcube &A, int m, int n) {
   double kr = (double)A.n_rows / (double)m;
   double kc = (double)A.n_cols / (double)n;
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((G.n_cols-1)/16+1, (G.n_rows-1)/16+1, 1);
+  dim3 gridSize((G.n_rows-1)/16+1, (G.n_cols-1)/16+1, 1);
   GPU_bilinear_interpolate2<<<gridSize, blockSize>>>(G.d_pixels, A.d_pixels,
       G.n_rows, G.n_cols, A.n_rows, A.n_cols, A.n_slices, (float)kr, (float)kc);
   checkCudaErrors(cudaGetLastError());
@@ -379,7 +381,7 @@ __global__ void GPU_k_cluster_setup(float *pts, float *centroids, float *interim
     if (!errset || minerr > interr) {
       errset = 1;
       minerr = interr;
-      index = a;
+      index = kid;
     }
   }
   // chunk of memory suppressed (bottleneck?)
@@ -410,7 +412,7 @@ void gpu_k_cluster(const gcube &S, int k, int niter, gcube &centroids, gcube &hy
     checkCudaErrors(cudaMemcpy(centroids.d_pixels, hyp.d_pixels,
           3 * hyp.n_cols * sizeof(float), cudaMemcpyDeviceToDevice));
   }
-  for (int j = 0; j + (int)hyp.size() < k; j++) {
+  for (int j = 0; j + hyp.n_cols < k; j++) {
     checkCudaErrors(cudaMemcpy(&centroids.d_pixels[IJ2C(0, j, 3)], &S.d_pixels[IJ2C(0, j, 3)],
           3 * sizeof(float), cudaMemcpyDeviceToDevice));
   }

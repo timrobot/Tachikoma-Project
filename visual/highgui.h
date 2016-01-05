@@ -1,8 +1,11 @@
-#ifndef __HIGHGUI_H__
-#define __HIGHGUI_H__
+#ifndef __TK_HIGHGUI_H__
+#define __TK_HIGHGUI_H__
 
 #include <string>
 #include <opencv2/core/core.hpp>
+
+#ifndef __NVCC__
+
 #include <armadillo>
 
 /** Load an image in arma::cube format
@@ -11,36 +14,25 @@
  */
 arma::cube load_image(const std::string &image_name);
 
+/** Save an image to an image name
+ *  @param image_name the image name to be saved under
+ *  @param image the image to be saved
+ */
+void save_image(const std::string &image_name, const arma::mat &image);
+void save_image(const std::string &image_name, const arma::cube &image);
+
 /** Convert a matrix to a cube
- *  @param m the matrix to convert
- *  @return the cube from the matrix
+ *  @param m the matrix
+ *  @return the cube
  */
 arma::cube cvt_mat2cube(const arma::mat &m);
 
-/** Save an image to an image name
- *  @param image_name the image name to be saved under
- *  @param image the image to be saved (grayscale)
- */
-void save_image(const std::string &image_name, const arma::mat &image);
-
-/** Save an image to an image name
- *  @param image_name the image name to be saved under
- *  @param image the image to be saved (rgb)
- */
-void save_image(const std::string &image_name, const arma::cube &image);
-
 /** Display an image in an OpenCV window
  *  @param window_name the name of the window to display the image
- *  @param image the image to be displayed (grayscale)
+ *  @param image the image to be displayed
  *  @param mouseevent (optional) enable mouse events
  */
 void disp_image(const std::string &window_name, const arma::mat &image, bool mouseevent = false);
-
-/** Display an image in an OpenCV window
- *  @param window_name the name of the window to display the image
- *  @param image the image to be displayed (rgb)
- *  @param mouseevent (optional) enable mouse events
- */
 void disp_image(const std::string &window_name, const arma::cube &image, bool mouseevent = false);
 
 /** Grab the position of a left mouse click
@@ -99,17 +91,18 @@ arma::cube cvt_opencv2arma(const cv::Mat &cv_image);
  */
 cv::Mat cvt_arma2opencv(const arma::cube &image);
 
-/** Convert the cv::Mat to an arma::mat
- *  @param cv_mtx the cv::Mat
- *  @return the arma::mat
+/** Conversion functions (experimental) for arma to opencv
+ *  @param mtx the matrix to take in
+ *  @param cvtype the image type
+ *  @return the opencv matrix
+ */
+cv::Mat arma2opencv(const arma::mat &mtx, int cvtype = CV_32F);
+
+/** Conversion functions (experimental) for opencv to arma
+ *  @param cv_mtx the matrix to take in
+ *  @return the armadillo matrix
  */
 arma::mat opencv2arma(const cv::Mat &cv_mtx);
-
-/** Convert the arma::mat to a cv::Mat
- *  @param mtx the arma::mat
- *  @return the cv::Mat
- */
-cv::Mat arma2opencv(const arma::mat &mtx, int cvtype = CV_64F);
 
 /** Convert rgb to grayscale
  *  @param image the rgb image
@@ -122,5 +115,55 @@ arma::mat cvt_rgb2gray(const arma::cube &image);
  *  @return the rgb image
  */
 arma::cube cvt_gray2rgb(const arma::mat &image);
+
+#else
+
+#include "gcube.h"
+
+/** Load an image in gcube format
+ *  @param image_name the name of the image to load
+ *  @return the image
+ */
+gcube load_gcube(const std::string &image_name);
+
+/** Save an image in gcube format
+ *  @param image_name the name of the image to save
+ *  @param image the image to save
+ */
+void save_gcube(const std::string &image_name, gcube &image);
+
+/** Print out a gcube to the console
+ *  @param image the image to be printed
+ */
+void print_gcube(gcube &image);
+
+/** Display a gcube onto the screen
+ *  @param window_name the name of the window
+ *  @param image the gcube to display
+ */
+void disp_gcube(const std::string &window_name, gcube &image);
+
+/** Wait until the user presses a key to close the window
+ */
+void disp_wait(void);
+
+/** Wait for a key to be pressed for 30 fps
+ *  @return status of a key pressed
+ */
+int disp_keyPressed(void);
+
+/** Transform an image from RGB to Grayscale
+ *  @param image the image to transform into grayscale
+ *  @return the transformed image
+ */
+gcube gpu_rgb2gray(const gcube &image);
+
+/** Transform an image from Grayscale to RGB
+ *  @param image the image to transform into RGB
+ *  @return the transformed image
+ */
+gcube gpu_gray2rgb(const gcube &image);
+
+#endif
 
 #endif

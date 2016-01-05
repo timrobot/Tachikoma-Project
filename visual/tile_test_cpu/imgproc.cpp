@@ -187,20 +187,20 @@ void blob2(const mat &F, vector<vec> &centroids) {
 }
 
 void gradient2(mat &DX, mat &DY, const mat &F) {
-  mat sobel = {
-    { -1.0, 0.0, 1.0 },
-    { -2.0, 0.0, 2.0 },
-    { -1.0, 0.0, 1.0 } };
+  mat sobel = reshape(mat({
+     -1.0, 0.0, 1.0 ,
+     -2.0, 0.0, 2.0 ,
+     -1.0, 0.0, 1.0  }), 3, 3).t();
   sobel /= accu(abs(sobel));
   DX = conv2(F, sobel);
   DY = conv2(F, sobel.t());
 }
 
 void gradient2(mat &DX, mat &DY, const cube &F) {
-  mat sobel = {
-    { -1.0, 0.0, 1.0 },
-    { -2.0, 0.0, 2.0 },
-    { -1.0, 0.0, 1.0 } };
+  mat sobel = reshape(mat({
+     -1.0, 0.0, 1.0 ,
+     -2.0, 0.0, 2.0 ,
+     -1.0, 0.0, 1.0  }), 3, 3).t();
   sobel /= accu(abs(sobel));
   DX = conv2(F, sobel);
   DY = conv2(F, sobel.t());

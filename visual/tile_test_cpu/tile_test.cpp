@@ -5,7 +5,6 @@
 #include <opencv2/xfeatures2d/nonfree.hpp>
 #include <opencv2/line_descriptor/descriptor.hpp>
 #include <opencv2/stitching/detail/motion_estimators.hpp>
-#include <cvsba/cvsba.h>
 #include <vector>
 #include <string>
 #include <iostream>
