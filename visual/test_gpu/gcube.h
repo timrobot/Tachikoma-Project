@@ -9,6 +9,7 @@
 #include <initializer_list>
 
 // TODO: allow compatibility with arma commands
+// TODO: fix some lin alg stuff
 
 namespace gfill {
   const uint8_t none = 0;
@@ -24,7 +25,7 @@ class gcube {
           size_t n_cols = 1,
           size_t n_slices = 1,
           uint8_t fill_type = gfill::none);
-    gcube(const std::initializer_list<float> &list); // add later for C++11 usage
+    gcube(const std::initializer_list<float> &list);
     gcube(const std::initializer_list< std::initializer_list<float> > &list);
     gcube(const std::initializer_list< std::initializer_list< std::initializer_list<float> > > &list);
     ~gcube(void);
@@ -36,10 +37,36 @@ class gcube {
     void create(const std::initializer_list<float> &list);
     void create(const std::initializer_list< std::initializer_list<float> > &list);
     void create(const std::initializer_list< std::initializer_list< std::initializer_list<float> > > &list);
+    void destroy(void);
 
-    //gcube &operator=(const gcube &gpucube); // do not use, broken
+    // OPERATORS
+    gcube &operator=(const gcube &gpucube);
+    void operator+=(const float &f);
+    void operator-=(const float &f);
+    void operator*=(const float &f);
+    void operator/=(const float &f);
+
+    void operator+=(const gcube &other);
+    void operator-=(const gcube &other);
+    void operator%=(const gcube &other);
+//    void operator/=(const gcube &other);
+//    void operator*=(const gcube &other); // TODO: finish mmul
+
+    // WARNING: the following create NEW gcubes
+    gcube operator+(const float &f);
+    gcube operator-(const float &f);
+    gcube operator*(const float &f);
+    gcube operator/(const float &f);
+    
+    gcube operator+(const gcube &other);
+    gcube operator-(const gcube &other);
+    gcube operator%(const gcube &other);
+//    gcube &operator/(const gcube &other);
+//    gcube &operator*(const gcube &other);
+
+    // MEMORY
     void copy(const gcube &gpucube);
-
+    void submatCopy(const gcube &gpucube, int x1, int x2, int y1, int y2);
     void load(const std::string &fname);
     void save(const std::string &fname);
 
@@ -53,6 +80,7 @@ class gcube {
 
     // armadillo compatibility
     arma::cube arma_cube(void);
+//    void arma_copy(const arma::cube &armaCube);
 
     float *d_pixels;
     size_t n_rows;

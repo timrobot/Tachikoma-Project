@@ -234,8 +234,7 @@ gcube gpu_LoG2(const gcube &F, int n, double sigma2) {
   gcube V, H;
   // smooth first
   gpu_gauss2(V, H, n, sigma2);
-  gcube G;
-  G.copy(gpu_conv2(F, V, H));  // TODO: correct conv_sym
+  gcube G = gpu_conv2(F, V, H);  // TODO: correct conv_sym
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((F.n_cols-1)/16+1, (F.n_rows-1)/16+1, 1);
   GPU_sub<<<gridSize, blockSize>>>(G.d_pixels, F.d_pixels, G.d_pixels, G.n_rows, G.n_cols);

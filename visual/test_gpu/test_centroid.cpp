@@ -3,8 +3,6 @@
 #include "highgui.h"
 #include "imgproc.h"
 #include "centroid.h"
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 
 using namespace std;

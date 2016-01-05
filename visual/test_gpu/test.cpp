@@ -1,23 +1,21 @@
-#include "highgui.h"
-#include "gcube.h"
 #include "gpu_util.h"
+#include "gcube.h"
+#include "highgui.h"
 #include <iostream>
+#include <cstdio>
 
-using namespace arma;
 using namespace std;
 
-gcube weight_avg(mat I) {
-  mat coeff = reshape(mat({
-    1, 2, 1,
-    2, 4, 2,
-    1, 2, 1
-  }), 3, 3).t();
+gcube weight_avg(gcube &I) {
+  gcube coeff({
+      { 1, 2, 1 },
+      { 2, 4, 2 },
+      { 1, 2, 1 } });
   coeff /= 16;
 
   // put the image inside of a zeros matrix (pad it with 0's on the borders)
-  mat G = I;
-  I = zeros<mat>(G.n_rows + 2, G.n_cols + 2);
-  I(span(1, G.n_rows), span(1, G.n_cols)) = G;
+  gcube G(I.n_rows + 2, I.n_cols + 2, 1, gfill::zeros);
+  G(span(1, G.n_rows), span(1, G.n_cols)) = G;
 
   mat H(G.n_rows, G.n_cols);
   for (int i = 0; i < G.n_rows; i++) {
@@ -33,7 +31,7 @@ gcube weight_avg(mat I) {
 int main() {
   //imread
 //  cube I = load_image("smallimage.bmp"); // red, green, blue
-  cube I = load_image("butterfly.jpg");
+/*  cube I = load_image("butterfly.jpg");
 
   mat red = I.slice(0);
   mat green = I.slice(1);
@@ -47,7 +45,7 @@ int main() {
 
   e /= e.max();
   disp_image("edges", e);
-  disp_wait();
+  disp_wait();*/
 
   return 0;
 }

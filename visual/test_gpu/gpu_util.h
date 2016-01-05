@@ -34,7 +34,10 @@ void __check(T err, const char* const func, const char* const file, const int li
 
 typedef float (*SFPfunc)(float, float); // must be of type __global__ or __device__
 
-__global__ void GPU_sum(float *G, float *F, int n);
+__global__ void GPU_addI(float *H, float *F, float I, int n_rows, int n_cols);
+__global__ void GPU_subI(float *H, float *F, float I, int n_rows, int n_cols);
+__global__ void GPU_mulI(float *H, float *F, float I, int n_rows, int n_cols);
+__global__ void GPU_divI(float *H, float *F, float I, int n_rows, int n_cols);
 
 __global__ void GPU_add(float *H, float *F, float *G, int n_rows, int n_cols);
 __global__ void GPU_sub(float *H, float *F, float *G, int n_rows, int n_cols);
@@ -48,6 +51,7 @@ __global__ void GPU_trans(float *H, float *F, int n_rows, int n_cols);
 
 __global__ void GPU_abs(float *H, float *F, int n_rows, int n_cols);
 
+//__global__ void GPU_sum(float *G, float *F, int n);
 //__global__ void GPU_map(float *H, float *F, int n_rows, int n_cols, SFPfunc op);
 //__global__ void GPU_merge(float *H, float *F, float *G, int n_rows, int n_cols, SFPfunc op);
 

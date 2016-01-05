@@ -1,5 +1,4 @@
 CC = nvcc
-CXX = g++
 CFLAGS = -std=c++11 -I/usr/local/include
 LIBS = -L/usr/local/lib \
 			 -lopencv_core \
@@ -7,8 +6,8 @@ LIBS = -L/usr/local/lib \
 			 -lopencv_imgproc \
 			 -lopencv_videoio \
 			 -lopencv_imgcodecs
-OBJS = highgui.o imgproc.o gcube.o gpu_util.o
-TEST = test_centroid
+OBJS = gpu_util.o gcube.o imgproc.o highgui.o
+TEST = test_centroid test
 
 all: $(OBJS) $(TEST)
 
@@ -16,7 +15,7 @@ test: test.o $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 test.o: test.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 test_centroid: $(OBJS) centroid.o test_centroid.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
