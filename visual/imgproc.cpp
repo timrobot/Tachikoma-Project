@@ -109,127 +109,71 @@ mat laplace_gauss2(uword n, double sigma2) {
   return H;
 }
 
-/** FEATURE DETECTION **/
-
-// try to get adaptive thresholding working
-mat edge2(const mat &F, uword n, double sigma2, bool isSobel, bool isDoG) {
-  if (isSobel) {
-    mat G = gauss2(n, sigma2);
-    // smooth first
-    mat H = conv2(F, G);
-    mat X, Y;
-    gradient2(X, Y, H);
-    G = sqrt(X % X + Y % Y);
-    return G;
-  } else if (isDoG) {
-    mat G = gauss2(n, sigma2);
-    mat DoG = conv2(F, G) - F;
-    return DoG;
-  } else {
-    mat LoG = laplace_gauss2(n, sigma2);
-    mat G = conv2(F, LoG);
-    return G;
-  }
-}
-
-cube edge2(const cube &F, uword n, double sigma2, bool isSobel, bool isDoG) {
-  cube edges(F.n_rows, F.n_cols, 3);
-  mat E = edge2(cvt_rgb2gray(F), n, sigma2, isSobel, isDoG);
-  edges.slice(0) = E;
-  edges.slice(1) = E;
-  edges.slice(2) = E;
-  return edges;
-}
-
-void blob2(const mat &F, vector<vec> &centroids) {
-  mat visited(F.n_rows, F.n_cols, fill::zeros);
-  vector<ivec> tovisit;
-  size_t nvisited = 0;
-  centroids.clear();
-  ivec pt;
-  vec mid(2);
-  int npts;
-  for (uword i = 0; i < F.n_rows; i++) {
-    for (uword j = 0; j < F.n_cols; j++) {
-      if (!visited(i, j)) {
-        mid.zeros();
-        npts = 0;
-        tovisit.push_back(ivec({(sword)i,(sword)j}));
-        visited(i,j) = 1;
-        while (tovisit.size() > nvisited) {
-          pt = tovisit[nvisited];
-          if (pt(0)-1>=0 && !visited(pt(0)-1,pt(1)) && F(pt(0)-1,pt(1)) == F(pt(0),pt(1))) {
-            visited(pt(0)-1,pt(1)) = 1;
-            tovisit.push_back(ivec({pt(0)-1,pt(1)}));
-          }
-          if (pt(0)+1<F.n_rows && !visited(pt(0)+1,pt(1)) && F(pt(0)+1,pt(1)) == F(pt(0),pt(1))) {
-            visited(pt(0)+1,pt(1)) = 1;
-            tovisit.push_back(ivec({pt(0)+1,pt(1)}));
-          }
-          if (pt(1)-1>=0 && !visited(pt(0),pt(1)-1) && F(pt(0),pt(1)-1) == F(pt(0),pt(1))) {
-            visited(pt(0),pt(1)-1) = 1;
-            tovisit.push_back(ivec({pt(0),pt(1)-1}));
-          }
-          if (pt(1)+1<F.n_cols && !visited(pt(0),pt(1)+1) && F(pt(0),pt(1)+1) == F(pt(0),pt(1))) {
-            visited(pt(0),pt(1)+1) = 1;
-            tovisit.push_back(ivec({pt(0),pt(1)+1}));
-          }
-          mid += vec({(double)pt(0), (double)pt(1)});
-          npts++;
-          nvisited++;
-        }
-        if (npts > 24) {
-          centroids.push_back(mid/npts);
-        }
-      }
-    }
-  }
-}
-
 void gradient2(mat &DX, mat &DY, const mat &F) {
-  mat sobel = {
-    { -1.0, 0.0, 1.0 },
-    { -2.0, 0.0, 2.0 },
-    { -1.0, 0.0, 1.0 } };
+  mat sobel = reshape(mat({
+        -1.0, 0.0, 1.0 ,
+        -2.0, 0.0, 2.0 ,
+        -1.0, 0.0, 1.0  }), 3, 3).t();
   sobel /= accu(abs(sobel));
   DX = conv2(F, sobel);
   DY = conv2(F, sobel.t());
 }
 
 void gradient2(mat &DX, mat &DY, const cube &F) {
-  mat sobel = {
-    { -1.0, 0.0, 1.0 },
-    { -2.0, 0.0, 2.0 },
-    { -1.0, 0.0, 1.0 } };
+  mat sobel = reshape(mat({
+        -1.0, 0.0, 1.0 ,
+        -2.0, 0.0, 2.0 ,
+        -1.0, 0.0, 1.0  }), 3, 3).t();
   sobel /= accu(abs(sobel));
   DX = conv2(F, sobel);
   DY = conv2(F, sobel.t());
 }
 
-mat nmm2(const mat &F, uword nsize, bool min_en, bool max_en) {
+mat nmm2(const mat &F, const mat &theta, uword nsize) {
   mat A(F.n_rows + (2 * nsize), F.n_cols + (2 * nsize), fill::zeros);
   A(span(nsize, F.n_rows+nsize-1), span(nsize, F.n_cols+nsize-1)) = F;
-  mat G(F.n_rows, F.n_cols);
+  mat G(F.n_rows, F.n_cols, fill::zeros);
   for (uword i = 0; i < F.n_rows; i++) {
     for (uword j = 0; j < F.n_cols; j++) {
-      G(i, j) = 0.0;
-      if (nsize == 1) {
-        if (min_en) {
-          if ((A(i+1,j+1) < A(i+1,j) && A(i+1,j+1) < A(i+1,j+2)) ||
-              (A(i+1,j+1) < A(i,j+1) && A(i+1,j+1) < A(i+2,j+1))) {
-            G(i, j) = A(i+1,j+1);
+      if (nsize == 0) {
+        double t = theta(i, j) * 4 / M_PI;
+        if (t < 0) {
+          t += 8.0;
+        }
+        uword ind[2];
+        // instead of rounding, use ceil and floor for more accuracy
+        ind[0] = (int)round(t) % 8;
+        ind[1] = (ind[0] + 4) % 8;
+        double v[2];
+        // choose a grid index
+        for (int idx = 0; idx < 2; idx++) {
+          uvec pt;
+          switch (ind[idx]) {
+            case 0: pt = { i    , j + 1 }; break;
+            case 1: pt = { i + 1, j + 1 }; break;
+            case 2: pt = { i + 1, j     }; break;
+            case 3: pt = { i + 1, j - 1 }; break;
+            case 4: pt = { i    , j - 1 }; break;
+            case 5: pt = { i - 1, j - 1 }; break;
+            case 6: pt = { i - 1, j     }; break;
+            case 7: pt = { i - 1, j + 1 }; break;
+            case 8: pt = { i, j }; break; // an error has occurred
+          }
+          if (pt(0) >= 0 && pt(0) < F.n_rows &&
+              pt(1) >= 0 && pt(1) < F.n_cols) {
+            v[idx] = A(pt(0), pt(1));
+          } else {
+            v[idx] = A(i, j);
           }
         }
-        if (max_en) {
-          if ((A(i+1,j+1) > A(i+1,j) && A(i+1,j+1) > A(i+1,j+2)) ||
-              (A(i+1,j+1) > A(i,j+1) && A(i+1,j+1) > A(i+2,j+1))) {
-            G(i, j) = A(i+1,j+1);
-          }
+        if (v[0] < A(i, j) && v[1] < A(i, j)) {
+          G(i, j) = A(i, j);
+        } else {
+          G(i, j) = 0.0;
         }
       } else {
         mat sec = A(span(i,i+(2*nsize)),span(j,j+(2*nsize)));
-        if ((min_en && A(i+nsize,j+nsize) == sec.min()) ||
-            (max_en && A(i+nsize,j+nsize) == sec.max())) {
+        if (A(i+nsize,j+nsize) == sec.max()) {
           G(i, j) = A(i+nsize,j+nsize);
         }
       }
@@ -260,7 +204,7 @@ mat k_cluster(const mat &S, uword k, int niter, vector<vec> &centroids, vector<v
   for (int iter = 0; iter < niter; iter++) {
     interim.zeros();
     memset(count, 0, sizeof(int) * k);
-    // :3 GPU
+    // :3 GPU part please
     for (int i = 0; i < S.n_cols; i++) {
       double minerr = 0;
       bool errset = false;
@@ -381,21 +325,6 @@ double ncc2(const mat &I1, const mat &I2) {
   return accu(F % G) / (accu(F) * accu(G));
 }
 
-mat harris2(const mat &I, const mat &W) {
-  assert(W.n_rows == W.n_cols);
-  std::vector<mat> G(2);
-  gradient2(G[0], G[1], I); // grab the gradients
-  // place gradients into padded matrix
-  mat wIxx = conv2(G[0] % G[0], W);
-  mat wIxy = conv2(G[0] % G[1], W);
-  mat wIyy = conv2(G[1] % G[1], W);
-  // find the taylor expansion-based corner detector
-  //double k = 0.07;
-  //return ((wIxx % wIyy) - (wIxy % wIxy)) - (k * ((wIxx + wIyy) % (wIxx + wIyy)));
-  double eps = 0.05;
-  return 2.0 * ((wIxx % wIyy) - (wIxy % wIxy)) / (wIxx + wIyy + eps);
-}
-
 static vec mergesort(const vec &nums) {
   if (nums.size() == 1) {
     return nums;
@@ -429,6 +358,7 @@ static double median_of_medians(const vec &nums) {
       vec S = mergesort(tnums(span(left, right - 1)));
       new_nums(i) = S(S.n_elem / 2);
     }
+    printf("ayyyyy\n");
     tnums = new_nums;
   }
   vec S = mergesort(tnums);

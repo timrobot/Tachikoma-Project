@@ -5,6 +5,7 @@
 #include <opencv2/xfeatures2d/nonfree.hpp>
 #include <opencv2/line_descriptor/descriptor.hpp>
 #include <opencv2/stitching/detail/motion_estimators.hpp>
+
 #include <vector>
 #include <string>
 #include <iostream>
@@ -12,8 +13,8 @@
 #include <unistd.h>
 #include "highgui.h"
 #include "imgproc.h"
+#include "feature.h"
 #include "draw.h"
-//#include "kcluster.h"
 
 using namespace std;
 using namespace cv;
@@ -45,42 +46,46 @@ arma::cube filter_color(arma::cube I, arma::vec c) {
 arma::cube filter_obj(arma::cube I1, arma::cube I2) {
   vector<arma::vec> centroids1, centroids2;
   // THIS IS THE SEGMENTATION (goto imgproc.cpp)
-  I1 = hist_segment2(I1, 2, centroids1, 5);
+  arma::uword mx = I1.n_cols/2;
+  arma::uword my = I1.n_rows/2;
+  vector<arma::vec> hyp1 = {
+    arma::vec({ I1(0,0,0),I1(0,0,1),I1(0,0,2) }),
+    arma::vec({ I1(my,mx,0),I1(my,mx,1),I1(my,mx,2) }) };
+  I1 = hist_segment2(I1, 2, centroids1, 5, hyp1, true);
 
-  arma::vec center_color = arma::vec({
-      I1(I1.n_rows / 2, I1.n_cols / 2, 0),
-      I1(I1.n_rows / 2, I1.n_cols / 2, 1),
-      I1(I1.n_rows / 2, I1.n_cols / 2, 2) });
-  vector<arma::vec> hyp = { center_color };
-  I2 = hist_segment2(I2, 5, centroids2, 5, hyp, true);
-  arma::vec best_match = centroids2[0]; // pretend this was the color
+  vector<arma::vec> hyp2 = { centroids1[1] };
+  I2 = hist_segment2(I2, 5, centroids2, 5, hyp2, true);
+
+  arma::vec best_match = centroids2[0];
   I2 = filter_color(I2, best_match);
   return I2;
 }
 
 int main(int argc, char *argv[]) {
+  srand(271828183);
   Mat img1 = imread("img01.png");
   Mat img2 = imread("test00.png");
 
   arma::cube i1 = cvt_opencv2arma(img1) / 255;
   arma::cube i2 = cvt_opencv2arma(img2) / 255;
 
-  i1 = imresize2(i1, 320, 320);
-  i2 = imresize2(i2, 320, 320);
+  arma::uword newsize = 320;
+  i1 = imresize2(i1, newsize, newsize);
+  i2 = imresize2(i2, newsize, newsize);
 
   disp_image("train image", i1);
   disp_image("test image", i2);
   disp_wait();
 
   arma::cube I2 = filter_obj(i1, i2);
-  arma::mat g = cvt_rgb2gray(I2);
+
+  arma::mat g = rgb2gray(I2);
 
   disp_image("segmented image", I2);
   disp_wait();
 
   // histogram algorithm here
   //
-
   int grows = g.n_rows;
   int gcols = g.n_cols;
   vector<int> colshist(gcols), rowshist(grows);

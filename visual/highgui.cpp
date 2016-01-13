@@ -130,7 +130,7 @@ void disp_image(const std::string &window_name, const arma::mat &image, bool mou
     strcpy(name, window_name.c_str());
     cv::setMouseCallback(window_name, MouseEventCallback, name);
   }
-  arma::cube new_image = cvt_gray2rgb(image);
+  arma::cube new_image = gray2rgb(image);
   cv::imshow(window_name, cvt_arma2opencv(new_image * 255.0));
 }
 
@@ -308,7 +308,7 @@ static int limit(int x, int minv, int maxv) {
   return (x < minv) ? minv : ((x > maxv) ? maxv : x);
 }
 
-arma::mat cvt_rgb2gray(const arma::cube &image) {
+arma::mat rgb2gray(const arma::cube &image) {
   arma::vec scale = { 0.3, 0.6, 0.1 };
   arma::mat new_image = arma::zeros<arma::mat>(image.n_rows, image.n_cols);
   for (arma::uword i = 0; i < image.n_slices; i++) {
@@ -317,7 +317,7 @@ arma::mat cvt_rgb2gray(const arma::cube &image) {
   return new_image;
 }
 
-arma::cube cvt_gray2rgb(const arma::mat &image) {
+arma::cube gray2rgb(const arma::mat &image) {
   arma::cube new_image(image.n_rows, image.n_cols, 3);
   for (arma::uword i = 0; i < new_image.n_slices; i++) {
     new_image.slice(i) = image;

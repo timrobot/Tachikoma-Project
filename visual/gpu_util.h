@@ -31,7 +31,7 @@ void __check(T err, const char* const func, const char* const file, const int li
   }
 }
 
-typedef float (*SFPfunc)(float, float); // must be of type __global__ or __device__
+//typedef float (*SFPfunc)(float, float); // must be of type __global__ or __device__
 
 __global__ void GPU_addI(float *H, float *F, float I, int n_rows, int n_cols);
 __global__ void GPU_subI(float *H, float *F, float I, int n_rows, int n_cols);

@@ -12,17 +12,15 @@ gcube::gcube(size_t n_rows, size_t n_cols, size_t n_slices, uint8_t fill_type) {
   this->create(n_rows, n_cols, n_slices, fill_type);
 }
 
-/*gcube::gcube(const gcube &gpucube) {
+gcube::gcube(const gcube &gpucube) {
   this->d_pixels = NULL;
-  this->create(gpucube.n_rows, gpucube.n_cols, gpucube.n_slices, gfill::none);
-  checkCudaErrors(cudaMemcpy(this->d_pixels, gpucube.d_pixels, this->n_elem * sizeof(float), cudaMemcpyDeviceToDevice));
+  this->copy(gpucube);
 }
 
 gcube::gcube(const gcube *gpucube) {
   this->d_pixels = NULL;
-  this->create(gpucube->n_rows, gpucube->n_cols, gpucube->n_slices, gfill::none);
-  checkCudaErrors(cudaMemcpy(this->d_pixels, gpucube->d_pixels, this->n_elem * sizeof(float), cudaMemcpyDeviceToDevice));
-}*/
+  this->copy(*gpucube);
+}
 
 gcube::gcube(const std::initializer_list<float> &list) {
   this->d_pixels = NULL;
@@ -67,6 +65,7 @@ void gcube::create(size_t n_rows, size_t n_cols, size_t n_slices, uint8_t fill_t
   this->n_elem = n_rows * n_cols * n_slices;
   if (this->n_elem != 0) {
     checkCudaErrors(cudaMalloc(&this->d_pixels, this->n_elem * sizeof(float)));
+//    printf("alloc'd    \t%p\n", this->d_pixels);
     switch (fill_type) {
       case gfill::none:
         break;
@@ -154,6 +153,7 @@ void gcube::create(const std::initializer_list< std::initializer_list< std::init
 
 void gcube::destroy(void) {
   if (this->d_pixels) {
+//    printf("freeing    \t%p\n", this->d_pixels);
     checkCudaErrors(cudaFree(this->d_pixels));
     this->d_pixels = NULL;
   }
@@ -161,78 +161,92 @@ void gcube::destroy(void) {
 
 // OPERATORS
 
-void gcube::operator=(const gcube &gpucube) { // do not use: broken
-/*  this->destroy();
-  this->n_rows = gpucube.n_rows;
-  this->n_cols = gpucube.n_cols;
-  this->n_slices = gpucube.n_slices;
-  this->n_elem = gpucube.n_elem;
-  this->d_pixels = gpucube.d_pixels;*/
-  // for now invoke the copy operation
-  this->copy(gpucube);
+void gcube::set(float v, size_t i, size_t j, size_t k) {
+  checkCudaErrors(cudaMemcpy(&this->d_pixels[IJK2C(i, j, k, this->n_rows, this->n_cols)],
+        &v, sizeof(float), cudaMemcpyHostToDevice));
 }
 
-void gcube::operator+=(const float &f) {
+float gcube::get(size_t i, size_t j, size_t k) {
+  float v;
+  checkCudaErrors(cudaMemcpy(&v, &this->d_pixels[IJK2C(i, j, k, this->n_rows, this->n_cols)],
+        sizeof(float), cudaMemcpyDeviceToHost));
+  return v;
+}
+
+gcube &gcube::operator=(const gcube &gpucube) {
+  this->copy(gpucube);
+  return *this;
+}
+
+gcube &gcube::operator+=(const float &f) {
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_addI<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator-=(const float &f) {
+gcube &gcube::operator-=(const float &f) {
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_subI<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator*=(const float &f) {
+gcube &gcube::operator*=(const float &f) {
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_mulI<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator/=(const float &f) {
+gcube &gcube::operator/=(const float &f) {
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_divI<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator+=(const gcube &other) {
+gcube &gcube::operator+=(const gcube &other) {
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_add<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator-=(const gcube &other) {
+gcube &gcube::operator-=(const gcube &other) {
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_sub<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator%=(const gcube &other) { // schur product
+gcube &gcube::operator%=(const gcube &other) { // schur product
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_mul<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator/=(const gcube &other) {
+gcube &gcube::operator/=(const gcube &other) {
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_div<<<gridSize, blockSize>>>(this->d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
+  return *this;
 }
 
-void gcube::operator*=(const gcube &other) {
+gcube &gcube::operator*=(const gcube &other) {
   gcube G = (*this) * other;
   this->destroy();
   this->d_pixels = G.d_pixels;
@@ -240,12 +254,13 @@ void gcube::operator*=(const gcube &other) {
   this->n_cols = G.n_cols;
   this->n_slices = G.n_slices;
   this->n_elem = G.n_elem;
+  return *this;
 }
 
 gcube gcube::operator+(const float &f) {
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_addI<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -254,7 +269,7 @@ gcube gcube::operator+(const float &f) {
 gcube gcube::operator-(const float &f) {
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_subI<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -263,7 +278,7 @@ gcube gcube::operator-(const float &f) {
 gcube gcube::operator*(const float &f) {
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_mulI<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -272,7 +287,7 @@ gcube gcube::operator*(const float &f) {
 gcube gcube::operator/(const float &f) {
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_divI<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, f, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -282,7 +297,7 @@ gcube gcube::operator+(const gcube &other) {
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_add<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -292,7 +307,7 @@ gcube gcube::operator-(const gcube &other) {
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1) / 16 + 1, (this->n_rows-1) / 16 + 1, 1);
+  dim3 gridSize((this->n_rows-1) / 16 + 1, (this->n_cols-1) / 16 + 1, 1);
   GPU_sub<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -302,7 +317,7 @@ gcube gcube::operator%(const gcube &other) {
   assert(this->n_rows == other.n_rows && this->n_cols == other.n_cols);
   gcube G(this->n_rows, this->n_cols, 1, gfill::none);
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((this->n_cols-1)/16+1, (this->n_rows-1)/16+1, 1);
+  dim3 gridSize((this->n_rows-1)/16+1, (this->n_cols-1)/16+1, 1);
   GPU_mul<<<gridSize, blockSize>>>(G.d_pixels, this->d_pixels, other.d_pixels, this->n_rows, this->n_cols);
   checkCudaErrors(cudaGetLastError());
   return G;
@@ -466,6 +481,69 @@ cv::Mat gcube::cv_mat(void) {
 
 // specific armadillo compatibility
 
+gcube::gcube(arma::vec &armaCube) {
+  this->d_pixels = NULL;
+  this->create(armaCube);
+}
+
+gcube::gcube(arma::mat &armaCube) {
+  this->d_pixels = NULL;
+  this->create(armaCube);
+}
+
+gcube::gcube(arma::cube &armaCube) {
+  this->d_pixels = NULL;
+  this->create(armaCube);
+}
+
+void gcube::create(const arma::vec &armaCube) {
+  this->create(armaCube.n_rows, 1, 1, gfill::none);
+  if (this->n_elem == 0) {
+    return;
+  }
+  float *h_pixels = new float[this->n_elem];
+  for (int i = 0; i < this->n_rows; i++) {
+    h_pixels[i] = (float)armaCube(i);
+  }
+  checkCudaErrors(cudaMemcpy(this->d_pixels, h_pixels,
+        this->n_elem * sizeof(float), cudaMemcpyHostToDevice));
+  delete h_pixels;
+}
+
+void gcube::create(const arma::mat &armaCube) {
+  this->create(armaCube.n_rows, armaCube.n_cols, 1, gfill::none);
+  if (this->n_elem == 0) {
+    return;
+  }
+  float *h_pixels = new float[this->n_elem];
+  for (int i = 0; i < this->n_rows; i++) {
+    for (int j = 0; j < this->n_cols; j++) {
+      h_pixels[IJ2C(i, j, this->n_rows)] = (float)armaCube(i, j);
+    }
+  }
+  checkCudaErrors(cudaMemcpy(this->d_pixels, h_pixels,
+        this->n_elem * sizeof(float), cudaMemcpyHostToDevice));
+  delete h_pixels;
+}
+
+void gcube::create(const arma::cube &armaCube) {
+  this->create(armaCube.n_rows, armaCube.n_cols, armaCube.n_slices, gfill::none);
+  if (this->n_elem == 0) {
+    return;
+  }
+  float *h_pixels = new float[this->n_elem];
+  for (int i = 0; i < this->n_rows; i++) {
+    for (int j = 0; j < this->n_cols; j++) {
+      for (int k = 0; k < this->n_slices; k++) {
+        h_pixels[IJK2C(i, j, k, this->n_rows, this->n_cols)] = (float)armaCube(i, j, k);
+      }
+    }
+  }
+  checkCudaErrors(cudaMemcpy(this->d_pixels, h_pixels,
+        this->n_elem * sizeof(float), cudaMemcpyHostToDevice));
+  delete h_pixels;
+}
+
 arma::cube gcube::arma_cube(void) {
   arma::cube ac(this->n_rows, this->n_cols, this->n_slices);
   float *h_pixels = new float[this->n_elem];
@@ -482,6 +560,7 @@ arma::cube gcube::arma_cube(void) {
   return ac;
 }
 
-void gcube::operator=(const cv::Mat &cvMat) {
+/*gcube &gcube::operator=(const cv::Mat &cvMat) {
   this->create(cvMat);
-}
+  return *this;
+}*/

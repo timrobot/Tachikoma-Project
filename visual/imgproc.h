@@ -12,6 +12,12 @@
  *  @return the convolved image
  */
 arma::mat conv2(const arma::mat &F, const arma::mat &H);
+
+/** Convolve an image with some kernel.
+ *  @param F the image to convolve
+ *  @param H the convolution kernel
+ *  @return the convolved image
+ */
 arma::cube conv2(const arma::cube &F, const arma::mat &H);
 
 /** Generate a gaussian square kernel.
@@ -28,36 +34,33 @@ arma::mat gauss2(arma::uword n, double sigma2);
  */
 arma::mat laplace_gauss2(arma::uword n, double sigma2);
 
-/** Create a matrix representing the edges.
- *  @param F the image to extract the edges from
- *  @param n the size of the convolution window
- *  @param isSobel (optional) use the sobel operator
- *  @param isDoG (optional) use the difference of gauss operator
- *  @return the edge matrix
- */
-arma::mat edge2(const arma::mat &F, arma::uword n = 7, double sigma2 = 0.5,
-    bool isSobel = false, bool isDoG = true);
-arma::cube edge2(const arma::cube &F, arma::uword n = 7, double sigma2 = 0.5,
-    bool isSobel = false, bool isDoG = true);
-
-void blob2(const arma::mat &F, std::vector<arma::vec> &centroids);
-
 /** Generate a gradient matrix of a grayscale image.
  *  @param F the image to find the gradient of
  *  @return a pair of gradient matrices { X, Y }
  */
 void gradient2(arma::mat &DX, arma::mat &DY, const arma::mat &F);
+
+/** Generate a gradient matrix of a grayscale image.
+ *  @param F the image to find the gradient of
+ *  @return a pair of gradient matrices { X, Y }
+ */
 void gradient2(arma::cube &DX, arma::cube &DY, const arma::cube &F);
 
 /** Apply non-min/maximal suppression on the image.
- *  @param F the image to apply nmm on
+ *  @param F the intensity matrix
+ *  @param theta the angle matrix
+ *  @param (optional) nsize the width of the neighbor kernel
  *  @return a non-maximally suppressed matrix
  */
-arma::mat nmm2(const arma::mat &F, arma::uword nsize = 1, bool min_en = false, bool max_en = true);
+arma::mat nmm2(const arma::mat &F, const arma::mat &theta, arma::uword nsize = 0);
 
 /** Cluster the matrix using the distance vectors in the matrix.
  *  @param S a matrix of data points, where each column is one datapt
  *  @param k the number of clusters
+ *  @param niter the number of iterations
+ *  @param centroids (output) the centroids vector
+ *  @param hyp (input) the hypothesis vector for the centroids
+ *  @param usehyp (optional) choose whether or not to use hypotheses
  *  @return a set of cluster centers, each column being a center
  */
 arma::mat k_cluster(const arma::mat &S, arma::uword k, int niter,
@@ -68,6 +71,10 @@ arma::mat k_cluster(const arma::mat &S, arma::uword k, int niter,
 /** Generate a segmented picture based on the k clustered histogram.
  *  @param F the image to segment
  *  @param k the number of color values
+ *  @param centroids (output) the centroids vector
+ *  @param niter the number of iterations
+ *  @param hyp (input) the hypothesis vector for the centroids
+ *  @param usehyp (optional) choose whether or not to use hypotheses
  *  @return the clustered image
  */
 arma::mat hist_segment2(const arma::mat &F, arma::uword k,
@@ -75,6 +82,16 @@ arma::mat hist_segment2(const arma::mat &F, arma::uword k,
     int niter = 10,
     std::vector<arma::vec> hyp = std::vector<arma::vec>(),
     bool usehyp = false);
+
+/** Generate a segmented picture based on the k clustered histogram.
+ *  @param F the image to segment
+ *  @param k the number of color values
+ *  @param centroids (output) the centroids vector
+ *  @param niter the number of iterations
+ *  @param hyp (input) the hypothesis vector for the centroids
+ *  @param usehyp (optional) choose whether or not to use hypotheses
+ *  @return the clustered image
+ */
 arma::cube hist_segment2(const arma::cube &F, arma::uword k,
     std::vector<arma::vec> &centroids,
     int niter = 10,
@@ -102,13 +119,6 @@ double ssd2(const arma::mat &I1, const arma::mat &I2);
  */
 double ncc2(const arma::mat &I1, const arma::mat &I2);
 
-/** Get the corners of an image using the Harris feature detector.
- *  @param I the image
- *  @param W the weights of importance of a patch
- *  @return the image gradient
- */
-arma::mat harris2(const arma::mat &I, const arma::mat &W);
-
 /** Resize an image using bilinear interpolation
  *  @param A the image to resize
  *  @param m the number of rows of the new size
@@ -116,6 +126,13 @@ arma::mat harris2(const arma::mat &I, const arma::mat &W);
  *  @return the interpolated image
  */
 arma::mat imresize2(const arma::mat &A, arma::uword m, arma::uword n);
+
+/** Resize an image using bilinear interpolation
+ *  @param A the image to resize
+ *  @param m the number of rows of the new size
+ *  @param n the number of cols of the new size
+ *  @return the interpolated image
+ */
 arma::cube imresize2(const arma::cube &C, arma::uword m, arma::uword n);
 
 /** Quickly resize an image into half the rows and cols
@@ -137,35 +154,36 @@ void lappyr2(imgpyr2 &blurred, imgpyr2 &edges, const arma::mat &I,
 
 /** GPU Convolve an image with a kernel
  *  @param F the image
- *  @param K the kernel
- *  @param H optional second kernel, vector (V replaces K)
+ *  @param K/DX the kernel or x-dim gaussian vector
+ *  @param DY the y-dim gaussian vector
  *  @return the convolved image
  */
 gcube gpu_conv2(const gcube &F, const gcube &K);
-gcube gpu_conv2(const gcube &F, const gcube &V, const gcube &H);
+gcube gpu_conv2(const gcube &F, const gcube &DX, const gcube &DY);
 
 /** GPU Create a gaussian kernel
- *  @param v the vertical gaussian vector
- *  @param h the horizontal gaussian vector
+ *  @param n the size of the dimensions of the kernel
+ *  @param sigma2 the kernel's covariance
+ *  @return the full gaussian kernel
+ */
+gcube gpu_gauss2(int n, double sigma2);
+
+/** GPU Create a gaussian kernel
+ *  @param DX (output) the x-dim gaussian vector
+ *  @param DY (output) the y-dim gaussian vector
  *  @param n the size of the dimensions of the kernel
  *  @param sigma2 the kernel's covariance
  */
-gcube gpu_gauss2(int n, double sigma2);
-void gpu_gauss2(gcube &V, gcube &H, int n, double sigma2);
-
-void gpu_edgesobel2(gcube &V, gcube &H, bool isVert);
-
-std::vector<gcube> gpu_gradient2(const gcube &F);
-
-gcube gpu_edge2(const gcube &F, int n, double sigma2);
-
-void gpu_cornersobel2(gcube &V, gcube &H);
-
-gcube gpu_corner2(const gcube &F, int n, double sigma2);
+void gpu_gauss2(gcube &DX, gcube &DY, int n, double sigma2);
+void gpu_gradient2(const gcube &F, gcube &DX, gcube &DY);
 
 gcube gpu_nmm2(const gcube &F, const gcube &Fx, const gcube &Fy);
 
 gcube gpu_imresize2(const gcube &A, int m, int n);
+
+gcube gpu_hist_segment2(const gcube &I, int n_centroids, int n_iter, const gcube &hyp, bool usehyp);
+
+gcube gpu_filter_colors(const gcube &I, const gcube &C, size_t n_matches);
 
 #endif
 

@@ -113,7 +113,7 @@ __global__ void GPU_sum(float *H, float *F, int n_rows, int n_cols, int shmsize,
   __syncthreads();
 
   int j;
-  int gap = n_rows-(idx-i);
+  int gap = (n_rows>>offset)-(idx-i);
   for (int ptn = 2; (j = i + (ptn >> 1)) < shmsize; ptn <<= 1) {
     if (i % ptn != 0 || j >= gap) {
       break;

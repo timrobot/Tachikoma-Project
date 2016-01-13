@@ -108,13 +108,13 @@ arma::mat opencv2arma(const cv::Mat &cv_mtx);
  *  @param image the rgb image
  *  @return the grayscale image
  */
-arma::mat cvt_rgb2gray(const arma::cube &image);
+arma::mat rgb2gray(const arma::cube &image);
 
 /** Convert grayscale to rgb
  *  @param the grayscale image
  *  @return the rgb image
  */
-arma::cube cvt_gray2rgb(const arma::mat &image);
+arma::cube gray2rgb(const arma::mat &image);
 
 #else
 
