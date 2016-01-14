@@ -76,4 +76,4 @@ gcube gpu_corner2(const gcube &F, int n, double sigma2);
 
 #endif
 
-#end
+#endif
