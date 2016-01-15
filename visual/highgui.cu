@@ -17,10 +17,10 @@ void save_gcube(const std::string &image_name, gcube &image) {
 void print_gcube(gcube &image) {
   float *mem = new float[image.n_elem];
   checkCudaErrors(cudaMemcpy(mem, image.d_pixels, sizeof(float) * image.n_elem, cudaMemcpyDeviceToHost));
-  for (int k = 0; k < image.n_slices; k++) {
-    printf("slice %d\n", k);
-    for (int j = 0; j < image.n_cols; j++) {
-      for (int i = 0; i < image.n_rows; i++) {
+  for (size_t k = 0; k < image.n_slices; k++) {
+    printf("slice %zu\n", k);
+    for (size_t i = 0; i < image.n_rows; i++) {
+      for (size_t j = 0; j < image.n_cols; j++) {
         printf("%f, ", mem[IJK2C(i, j, k, image.n_rows, image.n_cols)]);
       }
       printf("\n");
@@ -65,5 +65,17 @@ gcube gpu_rgb2gray(const gcube &image) {
         G.d_pixels, image.d_pixels,
         image.n_rows, image.n_cols);
   checkCudaErrors(cudaGetLastError());
+  return G;
+}
+
+gcube gpu_gray2rgb(const gcube &image) {
+  assert(image.n_slices == 1);
+  gcube G(image.n_rows, image.n_cols, 3);
+  checkCudaErrors(cudaMemcpy(&G.d_pixels[IJK2C(0, 0, 0, G.n_rows, G.n_cols)],
+        image.d_pixels, sizeof(float) * image.n_elem, cudaMemcpyDeviceToDevice));
+  checkCudaErrors(cudaMemcpy(&G.d_pixels[IJK2C(0, 0, 1, G.n_rows, G.n_cols)],
+        image.d_pixels, sizeof(float) * image.n_elem, cudaMemcpyDeviceToDevice));
+  checkCudaErrors(cudaMemcpy(&G.d_pixels[IJK2C(0, 0, 2, G.n_rows, G.n_cols)],
+        image.d_pixels, sizeof(float) * image.n_elem, cudaMemcpyDeviceToDevice));
   return G;
 }

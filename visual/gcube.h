@@ -25,6 +25,8 @@ class gcube {
           size_t n_cols = 1,
           size_t n_slices = 1,
           uint8_t fill_type = gfill::none);
+    gcube(const gcube &gpucube);
+    gcube(const gcube *gpucube);
     gcube(const std::initializer_list<float> &list);
     gcube(const std::initializer_list< std::initializer_list<float> > &list);
     gcube(const std::initializer_list< std::initializer_list< std::initializer_list<float> > > &list);
@@ -40,17 +42,20 @@ class gcube {
     void destroy(void);
 
     // OPERATORS
-    void operator=(const gcube &gpucube);
-    void operator+=(const float &f);
-    void operator-=(const float &f);
-    void operator*=(const float &f);
-    void operator/=(const float &f);
+    void set(float v, size_t i, size_t j = 0, size_t k = 0);
+    float get(size_t i, size_t j = 0, size_t k = 0);
 
-    void operator+=(const gcube &other);
-    void operator-=(const gcube &other);
-    void operator%=(const gcube &other);
-    void operator/=(const gcube &other);
-    void operator*=(const gcube &other); // TODO: finish mmul
+    gcube &operator=(const gcube &gpucube);
+    gcube &operator+=(const float &f);
+    gcube &operator-=(const float &f);
+    gcube &operator*=(const float &f);
+    gcube &operator/=(const float &f);
+
+    gcube &operator+=(const gcube &other);
+    gcube &operator-=(const gcube &other);
+    gcube &operator%=(const gcube &other);
+    gcube &operator/=(const gcube &other);
+    gcube &operator*=(const gcube &other); // TODO: test
 
     // WARNING: the following create NEW gcubes
     gcube operator+(const float &f);
@@ -75,12 +80,18 @@ class gcube {
     void create(const cv::Mat &cvMat);
     void create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2);
     cv::Mat cv_img(void);
-    void operator=(const cv::Mat &cvMat);
+    //gcube &operator=(const cv::Mat &cvMat);
     cv::Mat cv_mat(void);
 
     // armadillo compatibility
+    gcube(arma::vec &armaCube);
+    gcube(arma::mat &armaCube);
+    gcube(arma::cube &armaCube);
+    void create(const arma::vec &armaCube);
+    void create(const arma::mat &armaCube);
+    void create(const arma::cube &armaCube);
+    //gcube &operator=(const arma::cube &armaCube);
     arma::cube arma_cube(void);
-//    void arma_copy(const arma::cube &armaCube);
 
     float *d_pixels;
     size_t n_rows;

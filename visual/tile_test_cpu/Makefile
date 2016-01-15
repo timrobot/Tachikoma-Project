@@ -13,9 +13,12 @@ LIBS = -L/usr/local/lib \
 			 -lopencv_line_descriptor \
 			 -lopencv_stitching \
 			 -larmadillo
-OBJS = tile_test.o highgui.o imgproc.o draw.o
+OBJS = highgui.o imgproc.o draw.o feature.o
 
-all: tile_test
+all: test
+
+feature.o: feature.cpp
+	$(CXX) $(CFLAGS) -o $@ -c $<
 
 highgui.o: highgui.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $<
@@ -26,14 +29,11 @@ imgproc.o: imgproc.cpp
 draw.o: draw.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $<
 
-tile_test.o: tile_test.cpp
+test.o: test.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $<
 
-tile_test: $(OBJS)
+test: $(OBJS) test.o
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
 
 clean:
-	rm -f *.o tile_test
-
-run:
-	make clean; make; ./tile_test
+	rm -f *.o $(OBJS) test
