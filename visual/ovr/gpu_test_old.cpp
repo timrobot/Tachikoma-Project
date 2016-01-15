@@ -2,15 +2,16 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "ovr.h"
+#include "gcube.h"
+#include "gpu_util.h"
 
-//using namespace arma;
 
 // can be 30-45ish
 #define DCAMFPS 30
 
 int main() {
   // open both left and right cameras
-  cv::VideoCapture left(0);
+  cv::VideoCapture left(2);
   cv::VideoCapture right(1);
   assert(left.isOpened() && right.isOpened());
 
@@ -34,11 +35,14 @@ int main() {
   cv::namedWindow("hud");
   cv::Mat frames[2];
   double offset = 0.15;
-  arma::cube limg, rimg, combined;
+  gcube limg, rimg, combined;
+  cv::Mat out;
 
   for (;;) {
-    left.read(frames[0]);
-    right.read(frames[1]);
+    left.grab();
+    right.grab();
+    left.retrieve(frames[0]);
+    right.retrieve(frames[1]);
     if (!frames[0].data || !frames[1].data) {
       printf("No data...\n");
       continue;
@@ -47,11 +51,11 @@ int main() {
     limg.create(frames[0], 128, 511, 0, 480);
     rimg.create(frames[1], 128, 511, 0, 480);
     combined = ovr_image(limg, rimg, offset); // waste copy
-    disp_image("hud", combined);
-    if (disp_keyPressed() >= 0) {
+    out = combined.cv_img();
+    cv::imshow("hud", out);
+    if (cv::waitKey(DCAMFPS * 2 / 3) >= 0) {
       break;
     }
   }
-
   return 0;
 }
