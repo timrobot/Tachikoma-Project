@@ -36,7 +36,4 @@ test: $(OBJS) test.o
 	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
 
 clean:
-	rm -f *.o test
-
-run:
-	make clean; make; ./test
+	rm -f *.o $(OBJS) test
