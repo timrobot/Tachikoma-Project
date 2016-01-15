@@ -25,4 +25,4 @@ test.o: test.cpp
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	rm -f $(OBJS) $(TEST)
+	rm -f *.o $(OBJS) $(TEST)
