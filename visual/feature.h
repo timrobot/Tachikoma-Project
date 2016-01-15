@@ -27,7 +27,7 @@ arma::mat edge2(const arma::mat &F, int op = EDGE_CANNY);
 arma::cube edge2(const arma::cube &F, int op = EDGE_CANNY);
 
 arma::mat sobel_edge2(const arma::mat &F, arma::uword n = 7, double sigma2 = 3.0);
-arma::mat canny2(const arma::mat &F, double low = 0.4, double high = 0.8, arma::uword n = 7, double sigma2 = 3.0);
+arma::mat canny2(const arma::mat &F, double low = 0.4, double high = 0.8, arma::uword n = 7, double sigma2 = 3.0, bool en_hyst = false);
 arma::mat dog2(const arma::mat &F, double alpha = 1.0, arma::uword n = 7, double sigma2 = 3.0);
 arma::mat log2(const arma::mat &F, arma::uword n = 7, double sigma2 = 3.0);
 
@@ -76,4 +76,4 @@ gcube gpu_corner2(const gcube &F, int n, double sigma2);
 
 #endif
 
-#end
+#endif
