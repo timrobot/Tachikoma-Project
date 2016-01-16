@@ -77,8 +77,8 @@ class gcube {
 
     // opencv compatibility
     gcube(cv::Mat &cvMat);
-    void create(const cv::Mat &cvMat);
-    void create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2);
+    void create(const cv::Mat &cvMat, bool remalloc = true);
+    void create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2, bool remalloc = true);
     cv::Mat cv_img(void);
     //gcube &operator=(const cv::Mat &cvMat);
     cv::Mat cv_mat(void);

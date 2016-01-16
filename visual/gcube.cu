@@ -390,40 +390,61 @@ gcube::gcube(cv::Mat &cvMat) {
   this->create(cvMat);
 }
 
-void gcube::create(const cv::Mat &cvMat) {
-  this->create(cvMat.rows, cvMat.cols, cvMat.channels(), gfill::none);
+__global__ void GPU_cv_img2gcube(float *dst, unsigned char *src, int n_rows, int n_cols, int n_slices, int ioffset, int joffset) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int idy = blockIdx.y * blockDim.y + threadIdx.y;
+  int idz = blockIdx.z * blockDim.z + threadIdx.z;
+  if (idx >= n_rows || idy >= n_cols || idz >= n_slices) {
+    return;
+  }
+  dst[IJK2C(i, j, k, n_rows, n_cols)] = ((float)src[IJK2C(n_slices-k-1, j+joffset, i+ioffset, n_slices, n_cols)]) / 255.0;
+}
+
+void gcube::create(const cv::Mat &cvMat, bool remalloc) {
+  if (remalloc) {
+    this->create(cvMat.rows, cvMat.cols, cvMat.channels(), gfill::none);
+  } else {
+    assert(cvMat.rows * cvMat.cols * cvMat.channels() == this->n_elem && this->d_pixels != NULL);
+  }
   if (this->n_elem == 0) {
     return;
   }
-  float *h_pixels = new float[this->n_elem];
-  for (int i = 0; i < this->n_rows; i++) {
-    for (int j = 0; j < this->n_cols; j++) {
-      cv::Vec3b color = cvMat.at<cv::Vec3b>(i, j);
-      for (int k = 0; k < this->n_slices; k++) {
-        h_pixels[IJK2C(i, j, k, this->n_rows, this->n_cols)] = (float)color[2 - k] / 255.0f;
-      }
-    }
-  }
-  checkCudaErrors(cudaMemcpy(this->d_pixels, h_pixels,
-        this->n_elem * sizeof(float), cudaMemcpyHostToDevice));
-  delete h_pixels;
+  // copy to memory
+  unsigned char *dimg;
+  checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * this->n_elem));
+  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem), cudaMemcpyHostToDevice);
+
+  // reformat
+  dim3 blockSize(16, 16, 1);
+  dim3 gridSize((this->n_rows-1)/16+1, (this->n_cols-1)/16+1, this->n_slices);
+  GPU_cv_img2gcube<<<gridSize, blockSize>>>(this->d_pixels, dimg, this->n_rows, this->n_cols, this->n_slices, 0, 0);
+  checkCudaErrors(cudaGetLastError());
+  checkCudaErrors(cudaFree(dimg));
 }
 
-void gcube::create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2) {
+void gcube::create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2, bool remalloc) {
   assert(x1 <= x2 && y1 <= y2 && x2 <= cvMat.cols && y2 <= cvMat.rows);
-  this->create(y2 - y1, x2 - x1, cvMat.channels(), gfill::none);
-  float *h_pixels = new float[this->n_elem];
-  for (int i = y1; i < y2; i++) {
-    for (int j = x1; j < x2; j++) {
-      cv::Vec3b color = cvMat.at<cv::Vec3b>(i, j);
-      for (int k = 0; k < this->n_slices; k++) {
-        h_pixels[IJK2C(i-y1, j-x1, k, this->n_rows, this->n_cols)] = (float)color[k] / 255.0f;
-      }
-    }
+  int dx = x2 - x1;
+  int dy = y2 - y1;
+  if (remalloc) {
+    this->create(dy, dx, cvMat.channels(), gfill::none);
+  } else {
+    assert(dy * dx * cvMat.channels() == this->n_elem && this->d_pixels != NULL);
   }
-  checkCudaErrors(cudaMemcpy(this->d_pixels, h_pixels,
-        this->n_elem * sizeof(float), cudaMemcpyHostToDevice));
-  delete h_pixels;
+  if (this->n_elem == 0) {
+    return;
+  }
+  // copy to memory
+  unsigned char *dimg;
+  checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * this->n_elem));
+  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem), cudaMemcpyHostToDevice);
+
+  // reformat
+  dim3 blockSize(16, 16, 1);
+  dim3 gridSize((dy-1)/16+1, (dx-1)/16+1, this->n_slices);
+  GPU_cv_img2gcube<<<gridSize, blockSize>>>(this->d_pixels, dimg, dy, dx, this->n_slices, y1, x1);
+  checkCudaErrors(cudaGetLastError());
+  checkCudaErrors(cudaFree(dimg));
 }
 
 static int limit(int x, int a, int b) {
@@ -436,25 +457,33 @@ static int limit(int x, int a, int b) {
   }
 }
 
-cv::Mat gcube::cv_img(void) {
-  cv::Mat cv_image(this->n_rows, this->n_cols, CV_8UC3);
-  float *h_pixels = new float[this->n_elem];
-  checkCudaErrors(cudaMemcpy(h_pixels, this->d_pixels,
-        this->n_elem * sizeof(float), cudaMemcpyDeviceToHost));
-  for (int i = 0; i < this->n_rows; i++) {
-    for (int j = 0; j < this->n_cols; j++) {
-      if (this->n_slices == 1) {
-        uint8_t gray = (uint8_t)limit((int)round(h_pixels[IJ2C(i, j, this->n_rows)] * 255.0f), 0, 255);
-        cv_image.at<cv::Vec3b>(i, j) = cv::Vec3b(gray, gray, gray);
-      } else if (this->n_slices == 3) {
-        uint8_t red   = (uint8_t)limit((int)round(h_pixels[IJK2C(i, j, 0, this->n_rows, this->n_cols)] * 255.0f), 0, 255);
-        uint8_t green = (uint8_t)limit((int)round(h_pixels[IJK2C(i, j, 1, this->n_rows, this->n_cols)] * 255.0f), 0, 255);
-        uint8_t blue  = (uint8_t)limit((int)round(h_pixels[IJK2C(i, j, 2, this->n_rows, this->n_cols)] * 255.0f), 0, 255);
-        cv_image.at<cv::Vec3b>(i, j) = cv::Vec3b(blue, green, red);
-      }
-    }
+__global__ void GPU_gcube2cv_img(unsigned char *dst, float *src, int n_rows, int n_cols, int n_slices) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int idy = blockIdx.y * blockDim.y + threadIdx.y;
+  int idz = blockIdx.z * blockDim.z + threadIdx.z;
+  if (idx >= n_rows || idy >= n_cols || idz >= n_slices) {
+    return;
   }
-  delete h_pixels;
+#define LIMIT(x, a, b) (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
+  dst[IJK2C(k, j, i, n_slices, n_cols)] = LIMIT((unsigned char)(src[IJK2C(i, j, n_slices-k-1, n_rows, n_cols)] * 255.0), 0, 255);
+}
+
+cv::Mat gcube::cv_img(void) {
+  if (this->n_elem == 0) {
+    return cv::Mat(0, 0, CV_8UC1);
+  }
+  cv::Mat cv_image(this->n_rows, this->n_cols, (this->n_slices == 3) ? CV_8UC3 : CV_8UC1);
+  // reformat
+  unsigned char *dimg;
+  checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * this->n_elem));
+  dim3 blockSize(16, 16, 1);
+  dim3 gridSize((this->n_rows-1)/16+1, (this->n_cols-1)/16+1, this->n_slices);
+  GPU_gcube2cv_img<<<gridSize, blockSize>>>(dimg, this->d_pixels, this->n_rows, this->n_cols, this->n_slices);
+  checkCudaErrors(cudaGetLastError());
+
+  // place the matrix into the image
+  checkCudaErrors(cudaMemcpy(cv_image->data, dimg, sizeof(unsigned char) * this->n_elem, cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaFree(dimg));
   return cv_image;
 }
 
