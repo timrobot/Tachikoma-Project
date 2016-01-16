@@ -5,13 +5,13 @@ gst-launch-1.0 \
   multifilesink post-messages=true location="frame%zu.jpg" max-files=100 \
   v4l2src device=/dev/video1 ! \
   videorate ! \
-  video/x-raw, width=640, height=480, framerate=30/1 ! \
-  videoflip method=clockwise ! \
+  video/x-raw, width=640, height=480, framerate=60/1 ! \
+  videoflip method=counterclockwise ! \
   videobox border-alpha=0 left=-0 ! \
   mix. \
   v4l2src device=/dev/video0 ! \
   videorate ! \
-  video/x-raw, width=640, height=480, framerate=30/1 ! \
+  video/x-raw, width=640, height=480, framerate=60/1 ! \
   videoflip method=clockwise ! \
   videobox border-alpha=0 left=-480 ! \
   mix.
