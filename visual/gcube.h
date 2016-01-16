@@ -71,14 +71,14 @@ class gcube {
 
     // MEMORY
     void copy(const gcube &gpucube);
-    void submatCopy(const gcube &gpucube, int x1, int x2, int y1, int y2);
+//    void submatCopy(const gcube &gpucube, int x1, int x2, int y1, int y2);
     void load(const std::string &fname);
     void save(const std::string &fname);
 
     // opencv compatibility
     gcube(cv::Mat &cvMat);
     void create(const cv::Mat &cvMat, bool remalloc = true);
-    void create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2, bool remalloc = true);
+    void create(const cv::Mat &cvMat, int i1, int i2, int j1, int j2, bool remalloc = true);
     cv::Mat cv_img(void);
     //gcube &operator=(const cv::Mat &cvMat);
     cv::Mat cv_mat(void);

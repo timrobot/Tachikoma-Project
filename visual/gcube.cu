@@ -65,7 +65,6 @@ void gcube::create(size_t n_rows, size_t n_cols, size_t n_slices, uint8_t fill_t
   this->n_elem = n_rows * n_cols * n_slices;
   if (this->n_elem != 0) {
     checkCudaErrors(cudaMalloc(&this->d_pixels, this->n_elem * sizeof(float)));
-//    printf("alloc'd    \t%p\n", this->d_pixels);
     switch (fill_type) {
       case gfill::none:
         break;
@@ -153,7 +152,6 @@ void gcube::create(const std::initializer_list< std::initializer_list< std::init
 
 void gcube::destroy(void) {
   if (this->d_pixels) {
-//    printf("freeing    \t%p\n", this->d_pixels);
     checkCudaErrors(cudaFree(this->d_pixels));
     this->d_pixels = NULL;
   }
@@ -390,14 +388,14 @@ gcube::gcube(cv::Mat &cvMat) {
   this->create(cvMat);
 }
 
-__global__ void GPU_cv_img2gcube(float *dst, unsigned char *src, int n_rows, int n_cols, int n_slices, int ioffset, int joffset) {
+__global__ void GPU_cv_img2gcube(float *dst, unsigned char *src, int dst_n_rows, int dst_n_cols, int src_n_rows, int src_n_cols, int n_slices, int ioffset, int joffset) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
   int k = blockIdx.z * blockDim.z + threadIdx.z;
-  if (i >= n_rows || j >= n_cols || k >= n_slices) {
+  if (i >= dst_n_rows || j >= dst_n_cols || k >= n_slices) {
     return;
   }
-  dst[IJK2C(i, j, k, n_rows, n_cols)] = ((float)src[IJK2C(n_slices-k-1, j+joffset, i+ioffset, n_slices, n_cols)]) / 255.0;
+  dst[IJK2C(i, j, n_slices-k-1, dst_n_rows, dst_n_cols)] = ((float)src[IJK2C(k, j+joffset, i+ioffset, n_slices, src_n_cols)]) / 255.0;
 }
 
 void gcube::create(const cv::Mat &cvMat, bool remalloc) {
@@ -417,37 +415,38 @@ void gcube::create(const cv::Mat &cvMat, bool remalloc) {
   // reformat
   dim3 blockSize(16, 16, 1);
   dim3 gridSize((this->n_rows-1)/16+1, (this->n_cols-1)/16+1, this->n_slices);
-  GPU_cv_img2gcube<<<gridSize, blockSize>>>(this->d_pixels, dimg, this->n_rows, this->n_cols, this->n_slices, 0, 0);
+  GPU_cv_img2gcube<<<gridSize, blockSize>>>(this->d_pixels, dimg, this->n_rows, this->n_cols, this->n_rows, this->n_cols, this->n_slices, 0, 0);
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaFree(dimg));
 }
 
-void gcube::create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2, bool remalloc) {
-  assert(x1 <= x2 && y1 <= y2 && x2 <= cvMat.cols && y2 <= cvMat.rows);
-  int dx = x2 - x1;
-  int dy = y2 - y1;
+void gcube::create(const cv::Mat &cvMat, int i1, int i2, int j1, int j2, bool remalloc) {
+  assert(i1 <= i2 && j1 <= j2 && j2 <= cvMat.cols && i2 <= cvMat.rows);
+  int di = i2 - i1;
+  int dj = j2 - j1;
   if (remalloc) {
-    this->create(dy, dx, cvMat.channels(), gfill::none);
+    this->create(di, dj, cvMat.channels(), gfill::none);
   } else {
-    assert(dy * dx * cvMat.channels() == this->n_elem && this->d_pixels != NULL);
+    assert(di * dj * cvMat.channels() == this->n_elem && this->d_pixels != NULL);
   }
   if (this->n_elem == 0) {
     return;
   }
   // copy to memory
+  size_t n_elem = cvMat.rows * cvMat.cols * cvMat.channels();
   unsigned char *dimg;
-  checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * this->n_elem));
-  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem, cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * n_elem));
+  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * n_elem, cudaMemcpyHostToDevice));
 
   // reformat
   dim3 blockSize(16, 16, 1);
-  dim3 gridSize((dy-1)/16+1, (dx-1)/16+1, this->n_slices);
-  GPU_cv_img2gcube<<<gridSize, blockSize>>>(this->d_pixels, dimg, dy, dx, this->n_slices, y1, x1);
+  dim3 gridSize((di-1)/16+1, (dj-1)/16+1, this->n_slices);
+  GPU_cv_img2gcube<<<gridSize, blockSize>>>(this->d_pixels, dimg, di, dj, cvMat.rows, cvMat.cols, this->n_slices, i1, j1);
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaFree(dimg));
 }
 
-static int limit(int x, int a, int b) {
+/*static int limit(int x, int a, int b) {
   if (x < a) {
     return a;
   } else if (x > b) {
@@ -455,7 +454,7 @@ static int limit(int x, int a, int b) {
   } else {
     return x;
   }
-}
+}*/
 
 __global__ void GPU_gcube2cv_img(unsigned char *dst, float *src, int n_rows, int n_cols, int n_slices) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -464,7 +463,6 @@ __global__ void GPU_gcube2cv_img(unsigned char *dst, float *src, int n_rows, int
   if (i >= n_rows || j >= n_cols || k >= n_slices) {
     return;
   }
-//#define LIMIT(x, a, b) (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
   dst[IJK2C(k, j, i, n_slices, n_cols)] = (unsigned char)(src[IJK2C(i, j, n_slices-k-1, n_rows, n_cols)] * 255.0);
 }
 
