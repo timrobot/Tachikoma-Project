@@ -391,10 +391,10 @@ gcube::gcube(cv::Mat &cvMat) {
 }
 
 __global__ void GPU_cv_img2gcube(float *dst, unsigned char *src, int n_rows, int n_cols, int n_slices, int ioffset, int joffset) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int idy = blockIdx.y * blockDim.y + threadIdx.y;
-  int idz = blockIdx.z * blockDim.z + threadIdx.z;
-  if (idx >= n_rows || idy >= n_cols || idz >= n_slices) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  int k = blockIdx.z * blockDim.z + threadIdx.z;
+  if (i >= n_rows || j >= n_cols || k >= n_slices) {
     return;
   }
   dst[IJK2C(i, j, k, n_rows, n_cols)] = ((float)src[IJK2C(n_slices-k-1, j+joffset, i+ioffset, n_slices, n_cols)]) / 255.0;
@@ -412,7 +412,7 @@ void gcube::create(const cv::Mat &cvMat, bool remalloc) {
   // copy to memory
   unsigned char *dimg;
   checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * this->n_elem));
-  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem), cudaMemcpyHostToDevice);
+  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem, cudaMemcpyHostToDevice));
 
   // reformat
   dim3 blockSize(16, 16, 1);
@@ -437,7 +437,7 @@ void gcube::create(const cv::Mat &cvMat, int x1, int x2, int y1, int y2, bool re
   // copy to memory
   unsigned char *dimg;
   checkCudaErrors(cudaMalloc(&dimg, sizeof(unsigned char) * this->n_elem));
-  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem), cudaMemcpyHostToDevice);
+  checkCudaErrors(cudaMemcpy(dimg, cvMat.data, sizeof(unsigned char) * this->n_elem, cudaMemcpyHostToDevice));
 
   // reformat
   dim3 blockSize(16, 16, 1);
@@ -458,14 +458,14 @@ static int limit(int x, int a, int b) {
 }
 
 __global__ void GPU_gcube2cv_img(unsigned char *dst, float *src, int n_rows, int n_cols, int n_slices) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int idy = blockIdx.y * blockDim.y + threadIdx.y;
-  int idz = blockIdx.z * blockDim.z + threadIdx.z;
-  if (idx >= n_rows || idy >= n_cols || idz >= n_slices) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx.y * blockDim.y + threadIdx.y;
+  int k = blockIdx.z * blockDim.z + threadIdx.z;
+  if (i >= n_rows || j >= n_cols || k >= n_slices) {
     return;
   }
-#define LIMIT(x, a, b) (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
-  dst[IJK2C(k, j, i, n_slices, n_cols)] = LIMIT((unsigned char)(src[IJK2C(i, j, n_slices-k-1, n_rows, n_cols)] * 255.0), 0, 255);
+//#define LIMIT(x, a, b) (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
+  dst[IJK2C(k, j, i, n_slices, n_cols)] = (unsigned char)(src[IJK2C(i, j, n_slices-k-1, n_rows, n_cols)] * 255.0);
 }
 
 cv::Mat gcube::cv_img(void) {
@@ -482,7 +482,7 @@ cv::Mat gcube::cv_img(void) {
   checkCudaErrors(cudaGetLastError());
 
   // place the matrix into the image
-  checkCudaErrors(cudaMemcpy(cv_image->data, dimg, sizeof(unsigned char) * this->n_elem, cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(cv_image.data, dimg, sizeof(unsigned char) * this->n_elem, cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaFree(dimg));
   return cv_image;
 }

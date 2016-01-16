@@ -3,6 +3,7 @@
 #include "imgproc.h"
 #include <cmath>
 #include "gpu_util.h"
+#include "feature.h"
 #include <cassert>
 #include <cstdio>
 
@@ -583,7 +584,7 @@ gcube gpu_filter_colors(const gcube &I, const gcube &C, size_t target) {
   return F;
 }
 
-__global__ void GPU_sad2(float *S, float *I1, float *I2, int n_rows, int n_cols) {
+/*__global__ void GPU_sad2(float *S, float *I1, float *I2, int n_rows, int n_cols) {
  
 }
 
@@ -628,4 +629,4 @@ float ncc2(const gcube &I1, const gcube &I2) {
   checkCudaErrors(cudaMalloc(&d_G,  2 * sizeof(float)));
   double mu[2];
   GPU_sum<<<(Temp.n_elem-1)/256+1, 256>>>(d_G, Temp);
-}
+}*/
