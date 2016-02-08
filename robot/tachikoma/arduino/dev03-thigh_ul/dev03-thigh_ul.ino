@@ -129,8 +129,9 @@ void loop() {
   prevv = v;
 
   if (millis() - msecs > 100) {
-    sprintf(wbuf, "[%d %d %d]\n",
+    sprintf(wbuf, "[%d %d %d %d]\n",
       DEV_ID,
+      analogRead(A3),
       analogRead(A0),
       v);
     Serial.print(wbuf);
