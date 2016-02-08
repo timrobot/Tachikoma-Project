@@ -48,6 +48,7 @@ Tachikoma::Tachikoma(void) : BaseRobot(TACHIKOMA) {
   this->leg_min = zeros<mat>(NUM_LEGS, NUM_JOINTS);
   this->leg_max = zeros<mat>(NUM_LEGS, NUM_JOINTS);
   this->leg_rev = zeros<umat>(NUM_LEGS, NUM_JOINTS);
+  this->current_reading = zeros<vec>(NUM_DEV);
   this->uctrl_manager = NULL;
   this->read_lock = NULL;
   this->write_lock = NULL;
@@ -149,8 +150,8 @@ void Tachikoma::send(
   assert(wheels.n_elem == NUM_LEGS);
 
   int devid;
-  int legid1;
-  int legid2;
+  int legid1 = 0;
+  int legid2 = 0;
   double leg[NUM_LEGS][NUM_JOINTS * 2 + 1]; // njoints x (position, velocity) and wheel
 
   // set up the leg matrix (safety checks)
@@ -243,12 +244,13 @@ vec Tachikoma::recv(
     mat &leg_feedback) {
   char *msg;
   int devid;
-  int legid1;
-  int legid2;
+  int legid1 = 0;
+  int legid2 = 0;
   int enc;
   int sensor1;
   int sensor2;
   int dummy[2];
+  int cr;
   // read from device
   for (int i = 0; i < (int)this->connections.size(); i++) {
     if (this->ids[i] > 0 && this->ids[i] <= NUM_DEV) {
@@ -272,8 +274,9 @@ vec Tachikoma::recv(
                 legid2 = 0;
                 break;
             }
-            sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
-                &sensor1, &sensor2, &dummy[0], &dummy[1]);
+            sscanf(msg, "[%d %d %d %d %d %d]\n", &this->ids[i],
+                &cr, &sensor1, &sensor2, &dummy[0], &dummy[1]);
+            this->current_reading(devid-1) = cr;
             this->leg_read(legid1, WAIST_POS) = sensor1;
             this->leg_read(legid2, WAIST_POS) = sensor2;
             this->leg_fback(legid1, WAIST_POS) = dummy[0];
@@ -288,8 +291,9 @@ vec Tachikoma::recv(
         case THIGH_DR:
           legid1 = devid - THIGH_UL; // hack for speed
           if ((msg = serial_read(this->connections[i]))) {
-            sscanf(msg, "[%d %d %d]\n", &this->ids[i],
-                &sensor1, &dummy[0]);
+            sscanf(msg, "[%d %d %d %d]\n", &this->ids[i],
+                &cr, &sensor1, &dummy[0]);
+            this->current_reading(devid-1) = cr;
             this->leg_read(legid1, THIGH_POS) = sensor1;
             this->leg_fback(legid1, THIGH_POS) = dummy[0];
           }
@@ -302,9 +306,10 @@ vec Tachikoma::recv(
         case WHEEL_DR:
           if ((msg = serial_read(this->connections[i]))) {
             legid1 = devid - WHEEL_UL; // hack for speed
-            sscanf(msg, "[%d %d %d]\n", &this->ids[i],
-                &enc, &dummy[0]);
-            this->leg_read(legid1, WHEEL_VEL) = (double)enc;
+            sscanf(msg, "[%d %d %d %d]\n", &this->ids[i],
+                &cr, &enc, &dummy[0]);
+            this->current_reading(devid-1) = cr;
+            this->leg_read(legid1, WHEEL_VEL) = enc;
             this->leg_fback(legid1, WHEEL_VEL) = dummy[0];
           }
           break;
@@ -493,7 +498,7 @@ static double limitf(double value, double min_value, double max_value) {
 static double enc_transform(int jointid, double minv, double maxv, int reversed, double value) {
   double enc_range = maxv - minv;
   double rad[2];
-  // chnage this later
+  // change this later
   switch (jointid) {
     case WAIST:
       rad[0] = -M_PI_4;

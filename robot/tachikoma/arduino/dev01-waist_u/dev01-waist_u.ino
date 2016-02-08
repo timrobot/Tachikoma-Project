@@ -144,8 +144,9 @@ void loop() {
   prevv[1] = v[1];
 
   if (millis() - msecs > 100) {
-    sprintf(wbuf, "[%d %d %d %d %d]\n",
+    sprintf(wbuf, "[%d %d %d %d %d %d]\n",
       DEV_ID,
+      analogRead(A3),
       analogRead(A0),
       analogRead(A1),
       v[0],

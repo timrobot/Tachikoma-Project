@@ -175,8 +175,9 @@ void loop() {
   enc.read();
 
   if (millis() - msecs > 100) {
-    sprintf(wbuf, "[%d %d %d]\n",
+    sprintf(wbuf, "[%d %d %d %d]\n",
       DEV_ID,
+      analogRead(A3),
       enc.read(),
       v);
     Serial.print(wbuf);

@@ -174,12 +174,9 @@ class Tachikoma : public BaseRobot {
     // updated on send
     arma::mat leg_write;
     // updated on recv
-
-    // updated on send
-    arma::mat leg_write;
-    // updated on recv
     arma::mat leg_read;
     arma::mat leg_fback;
+    arma::vec current_reading;
     // updated on forward kinematics
     arma::mat leg_positions;
     // parameters
