@@ -64,13 +64,6 @@ void setup() {
 static int targetv[4];
 static int prevv[4];
 
-int rampmotor(int curr, int target) {
-  int delta = target - curr;
-  delta = limit(delta, -4, 4);
-  curr = limit(curr + delta, -255, 255);
-  return curr;
-}
-
 void loop() {
   int nbytes = 0;
   if ((nbytes = Serial.available())) {
@@ -92,14 +85,14 @@ void loop() {
       if ((s = strrchr(buf, '['))) {
         // CUSTOMIZE
         sscanf(s, "[%d %d %d %d]\n",
-            &targetv[0], &targetv[1], &targetv[2], &targetv[3]);
+            &prevv[0], &prevv[1], &prevv[2], &prevv[3]);
       }
       memmove(buf, &e[1], strlen(&e[1]) + sizeof(char));
     }
   }
-  for (int i = 0; i < 4; i++) {
-    prevv[i] = rampmotor(prevv[i], targetv[i]);
-  }
+//  for (int i = 0; i < 4; i++) {
+//    prevv[i] = rampmotor(prevv[i], targetv[i]);
+//  }
   setmotors(prevv[0], prevv[1], prevv[2], prevv[3]);
 
   if (millis() - msecs > 100) {

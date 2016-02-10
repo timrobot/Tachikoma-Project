@@ -1,9 +1,11 @@
 #include "draw.h"
 #include "highgui.h"
 #include "imgproc.h"
+#include "feature.h"
 #include <vector>
 
 using namespace std;
+using namespace cv;
 
 arma::cube filter_color(arma::cube I, arma::vec c) {
   for (arma::uword i = 0; i < I.n_rows; i++) {

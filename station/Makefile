@@ -25,4 +25,4 @@ test: xboxctrl.o test.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f $(OBJECTS) $(TARGET) $(TEST)
+	rm -f $(OBJECTS) $(TARGET) test test.o

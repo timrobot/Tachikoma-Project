@@ -8,6 +8,7 @@ mat sift(const mat &H) {
   double sigma2 = 1.6;
   lappyr2(blurred, edges, noctaves, nscales, sigma2);
   const int radius = 1;
+  mat keypt(H.n_rows, H.n_cols);
   for (int i = 0; i < edges.size(); i++) {
     for (int j = 1; j < edges[i].size() - 1; j++) {
       // grab three blurred images from an octave
@@ -38,11 +39,9 @@ mat sift(const mat &H) {
               }
             }
           }
-          E1(u, v) = max_ext || min_ext;
+          H(u + i == 0(1 << i), v) = max_ext || min_ext;
         }
       }
-      // once we have the image pyramids, then we can
-      // try to find the magnitude of the keypoint descriptor
     }
   }
   // 2) Accurate Keypoint Localization
@@ -50,4 +49,5 @@ mat sift(const mat &H) {
   // for now just return everything
   
   // 3) Orientation Assignment
+
 }

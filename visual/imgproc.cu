@@ -3,7 +3,6 @@
 #include "imgproc.h"
 #include <cmath>
 #include "gpu_util.h"
-#include "feature.h"
 #include <cassert>
 #include <cstdio>
 
@@ -160,136 +159,9 @@ void gpu_gauss2(gcube &DX, gcube &DY, int n, double sigma2) {
   checkCudaErrors(cudaMemcpy(DY.d_pixels, h_pixels, n * sizeof(float), cudaMemcpyHostToDevice));
 }
 
-gcube gpu_edge2(const gcube &F, int op) {
-  assert (op == EDGE_SOBEL || op == EDGE_CANNY || op == EDGE_LOG);
-  gcube DX, DY, DD;
-  switch (op) {
-    case EDGE_SOBEL:
-      DX = gpu_edgeSobel2(F, true);
-      DY = gpu_edgeSobel2(F, false);
-      DD = (DX % DX) + (DY % DY);
-      return DD; 
-    case EDGE_CANNY:
-      return gpu_edgeCanny2(F);
-    case EDGE_LOG:
-      return gpu_edgeLoG2(F);
-    default:
-      break;
-  }
-  return gcube();
-}
-
-gcube gpu_edgeSobel2(const gcube &F, bool isVert) { // change to vector
-  gcube DX(1, 3);
-  gcube DY(3, 1);
-  float DX_h_pixels[3];
-  float DY_h_pixels[3];
-  if (isVert) {
-    DX_h_pixels[0] = 0.25f; DX_h_pixels[1] = 0.5f; DX_h_pixels[2] = 0.25f;
-    DY_h_pixels[0] = 0.5f; DY_h_pixels[1] = 0.0f; DY_h_pixels[2] = -0.5f;
-  } else {
-    DX_h_pixels[0] = 0.5f; DX_h_pixels[1] = 0.0f; DX_h_pixels[2] = -0.5f;
-    DY_h_pixels[0] = 0.25f; DY_h_pixels[1] = 0.5f; DY_h_pixels[2] = 0.25f;
-  }
-  // small memcpy
-  checkCudaErrors(cudaMemcpy(DX.d_pixels, DX_h_pixels, 3 * sizeof(float), cudaMemcpyHostToDevice));
-  checkCudaErrors(cudaMemcpy(DY.d_pixels, DY_h_pixels, 3 * sizeof(float), cudaMemcpyHostToDevice));
-
-  // run the sobel operator on the matrices
-  return gpu_conv2(F, DX, DY);
-}
-
-__global__ void GPU_eucdist(float *C, float *A, float *B, int n_rows, int n_cols) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  if (i >= n_rows || j >= n_cols) {
-    return;
-  }
-  float dx = A[IJ2C(i, j, n_rows)];
-  float dy = B[IJ2C(i, j, n_rows)];
-  C[IJ2C(i, j, n_rows)] = sqrtf(dx * dx + dy * dy);
-}
-
-__global__ void GPU_minthresh2(float *G, float *F, int n_rows, int n_cols, float minthresh) { // TODO
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  if (i >= n_rows || j >= n_cols) {
-    return;
-  }
-  G[IJ2C(i, j, n_rows)] = F[IJ2C(i, j, n_rows)];
-}
-
-// By default uses the sobel operator
-gcube gpu_edgeCanny2(const gcube &F, int n, double sigma2) {
-  gcube DX, DY;
-  // smooth first
-  gpu_gauss2(DX, DY, n, sigma2);
-  gcube G = gpu_conv2(F, DX, DY);
-  // get gradients
-  gpu_gradient2(G, DX, DY);
-  // grab the eucdist
-  dim3 blockSize(16, 16, 1);
-  dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
-  GPU_eucdist<<<gridSize, blockSize>>>(G.d_pixels, DX.d_pixels, DY.d_pixels, G.n_rows, G.n_cols);
-  checkCudaErrors(cudaGetLastError());
-  // do nonmaximal suppression, then thresholding
-  gpu_nmm2(G, DX, DY);
-  // TODO: make adaptive thresholding
-  GPU_minthresh2<<<gridSize, blockSize>>>(G.d_pixels, G.d_pixels, G.n_rows, G.n_cols, 0.4);
-  checkCudaErrors(cudaGetLastError());
-  return G;
-}
-
-gcube gpu_edgeLoG2(const gcube &F, int n, double sigma2, float alpha) {
-  gcube DX, DY;
-  // smooth first
-  gpu_gauss2(DX, DY, n, sigma2);
-  gcube G = gpu_conv2(F, DX, DY);
-  dim3 blockSize(16, 16, 1);
-  dim3 gridSize((F.n_rows-1)/16+1, (F.n_cols-1)/16+1, 1);
-  GPU_mulI<<<gridSize, blockSize>>>(G.d_pixels, G.d_pixels, alpha, G.n_rows, G.n_cols);
-  checkCudaErrors(cudaGetLastError());
-  GPU_sub<<<gridSize, blockSize>>>(G.d_pixels, F.d_pixels, G.d_pixels, G.n_rows, G.n_cols);
-  checkCudaErrors(cudaGetLastError());
-  return G;
-}
-
 void gpu_gradient2(const gcube &F, gcube &DX, gcube &DY) {
   DX = gpu_edgeSobel2(F, false);
   DY = gpu_edgeSobel2(F, true);
-}
-
-/*__global__ void GPU_blob2(float *centroid, float *F, int iteration, int n_rows, int n_cols) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  if (i >= n_rows || j >= n_cols) {
-  return;
-  }
-// 
-}
-
-gcube gpu_blob2(const gcube &F, double sigma2, const gcube &color) {
-gcube visited(F.n_rows, F.n_cols, 1, gfill::zeros);
-
-}*/
-
-void gpu_cornerSobel2(gcube &DX, gcube &DY) { // change to vector
-  DX.create(1, 3);
-  DY.create(3, 1);
-  float DX_h_pixels[3];
-  float DY_h_pixels[3];
-  DX_h_pixels[0] = 0.25f; DX_h_pixels[1] = -0.5f; DX_h_pixels[2] = 0.25f;
-  DY_h_pixels[0] = 0.25f; DY_h_pixels[1] = -0.5f; DY_h_pixels[2] = 0.25f;
-  // small memcpy
-  checkCudaErrors(cudaMemcpy(DX.d_pixels, DX_h_pixels, 3 * sizeof(float), cudaMemcpyHostToDevice));
-  checkCudaErrors(cudaMemcpy(DY.d_pixels, DY_h_pixels, 3 * sizeof(float), cudaMemcpyHostToDevice));
-}
-
-// By default uses the sobel operator
-gcube gpu_corner2(const gcube &F, int n, double sigma2) {
-  gcube sobel_v, sobel_h;
-  gpu_cornerSobel2(sobel_v, sobel_h);
-  return gpu_conv2(F, sobel_v, sobel_h);
 }
 
 __global__ void GPU_nmm2(float *G, float *F, float *Fx, float *Fy, int n_rows, int n_cols) {
