@@ -29,7 +29,6 @@ pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) 
     t=std::rand()*(int)(2*M_PI) % (360);
     sim_robot newbot; 
     newbot.set_pose(x,y,t);
-    newbot.set_noise(8.0, 0.5);
     new_particles.push_back(newbot);
   }
   particles.clear();
@@ -100,17 +99,17 @@ void pfilter::move(double v, double w) {
     particles[i].move(v,w);
     // circular world!!!!
     sim_robot &bot = particles[i];
-    while (bot.x < 0) {
-      bot.x += (double)this->map->n_cols;
+    if (bot.x < 0) {
+      bot.x = 0;
     }
-    while (bot.x >= (double)this->map->n_cols) {
-      bot.x -= (double)this->map->n_cols;
+    if (bot.x >= (double)this->map->n_cols) {
+      bot.x = (double)this->map->n_cols-1;
     }
     while (bot.y < 0) {
-      bot.y += (double)this->map->n_rows;
+      bot.y = 0;
     }
     while (bot.y >= (double)this->map->n_rows) {
-      bot.y -= (double)this->map->n_rows;
+      bot.y = (double)this->map->n_rows-1;
     }
   }
 }
@@ -127,14 +126,18 @@ double gauss(double mu, double sigma2) {
 void pfilter::weigh(mat &observations) {
   vec theta = vec(observations.size());
   vec radius(observations.size());
+  vec R(observations.n_cols);
+  vec T(observations.n_cols);
+  for (int i = 0; i < (int)landmarks.size(); i++) {
+    R[i] = sqrt(dot(observations.col(i), observations.col(i)));
+    T[i] = atan2(observations(1,i), observations(0,i));
+  }
   for (int i=0;i<particles.size();i++){
     for(int j=0;j<landmarks.size();j++){
-      radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) + pow(landmarks[j].y-particles[i].y, 2));
-      theta[j]=atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t;
-      double newx = radius[j] * cos(theta[j]);
-      double newy = radius[j] * sin(theta[j]);
-      double distance =sqrt(pow(newx-observations(0,j),2) + pow(newy-observations(1,j),2)); 
-      this->health[i] *= gauss(distance,1);
+      radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) + pow(landmarks[j].y-particles[i].y, 2)); // radius of the robot
+      theta[j]=atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t; // theta of the robot
+      this->health[i] *= gauss(R[j]-radius[j],vs);
+      this->health[i] *= gauss(T[j]-theta[j],ws);
     }
   }
   resample();
@@ -179,7 +182,11 @@ void pfilter::observe(mat observations) {
  */
 void pfilter::predict(vec &mu, double &sigma) {
   // TODO
-  mu = vec({ -1, -1, 0 });
+  mu = zeros<vec>(3);
+  for (int i = 0; i < this->particles.size(); i++) {
+    mu += vec({ this->particles[i].x, this->particles[i].y, this->particles[i].t });
+  }
+  mu /= this->particles.size();
   sigma = 0;
 }
 

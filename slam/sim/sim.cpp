@@ -43,7 +43,7 @@ int main() {
 
   // load the map (custom)
   sim_map map;
-  map.load("rand1.png");
+  map.load("maze1.png");
 
   // create the landmarks (custom)
   vector<sim_landmark> landmarks;
@@ -56,7 +56,7 @@ int main() {
 
   // load the robot
   sim_robot robot(&map);
-  robot.set_size(12);
+  robot.set_size(8);
   robot.set_pose(70, 48, 0);
   robot.set_noise(0.3, 0.02);
 
@@ -69,9 +69,9 @@ int main() {
 /////////////////////////
 
   // create the particle filter
-  pfilter pf(100, &map, landmarks);
+  pfilter pf(1000, &map, landmarks);
   pf.set_size(12);
-  pf.set_noise(12.0, 0.5);
+  pf.set_noise(6.0, 1.5);
   
   // start up the window
   SDL_Surface *screen = sim_window::init(map.n_cols * 2, map.n_rows * 2);
@@ -114,16 +114,16 @@ int main() {
     vec mu;
     double sigma;
     pf.predict(mu, sigma);
-    cout << "position: " << mu(0) << ", " << mu(1) << ", angle: " << mu(2) << ", error: " << sigma << endl;
+    cout << "position: " << mu(0) << ", " << mu(1) << ", angle: " << mu(2) * 180 / M_PI << ", error: " << sigma << endl;
 
     // put stuff on the screen
     map.blit(frame);
     for (sim_landmark &lm : landmarks) {
       lm.blit(frame);
     }
-    lidar.blit(frame);
+    //lidar.blit(frame);
     pf.blit(frame);
-    robot.blit(frame);
+    //robot.blit(frame);
     newframe = doubleImageSize(frame);
     sim_window::blit(screen, newframe);
     SDL_Delay(25);
