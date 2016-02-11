@@ -15,9 +15,10 @@ using namespace std;
 pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) {
   // STEP 1: store the map and landmark variables
   this->map = map;
+  this->landmarks = landmarks;
   // STEP 2: create a bunch of particles, place them into this->particles
   int x=0; int y=0; double t=0;
- 
+
   //sim_robot p = [nparticles];
   std::default_random_engine generator;
   std::uniform_int_distribution<int> distribution(0,(*map).n_cols);
@@ -28,7 +29,7 @@ pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) 
     t=std::rand()*(int)(2*M_PI) % (360);
     sim_robot newbot; 
     newbot.set_pose(x,y,t);
-    newbot.set_noise(3.0, 0.5);
+    newbot.set_noise(8.0, 0.5);
     new_particles.push_back(newbot);
   }
   particles.clear();
@@ -97,6 +98,20 @@ void pfilter::move(double v, double w) {
   double xp=0; double yp=0; double tp=0;
   for (int i=0;i<particles.size();i++){
     particles[i].move(v,w);
+    // circular world!!!!
+    sim_robot &bot = particles[i];
+    while (bot.x < 0) {
+      bot.x += (double)this->map->n_cols;
+    }
+    while (bot.x >= (double)this->map->n_cols) {
+      bot.x -= (double)this->map->n_cols;
+    }
+    while (bot.y < 0) {
+      bot.y += (double)this->map->n_rows;
+    }
+    while (bot.y >= (double)this->map->n_rows) {
+      bot.y -= (double)this->map->n_rows;
+    }
   }
 }
 
@@ -114,12 +129,12 @@ void pfilter::weigh(mat &observations) {
   vec radius(observations.size());
   for (int i=0;i<particles.size();i++){
     for(int j=0;j<landmarks.size();j++){
-      radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) - pow(landmarks[j].y-particles[i].y, 2));
+      radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) + pow(landmarks[j].y-particles[i].y, 2));
       theta[j]=atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t;
       double newx = radius[j] * cos(theta[j]);
       double newy = radius[j] * sin(theta[j]);
-      double distance =sqrt(pow(newx-observations(0,i),2) + pow(newy-observations(1,i),2)); 
-      health[i]*=gauss(distance,1);
+      double distance =sqrt(pow(newx-observations(0,j),2) + pow(newy-observations(1,j),2)); 
+      this->health[i] *= gauss(distance,1);
     }
   }
   resample();
@@ -133,10 +148,13 @@ void pfilter::resample(void) {
   vector<sim_robot> p2;
   int index = (int)std::rand() % N;
   double beta=0;
-  int mw = (int)(max(health));
+  double mw = (max(health));
   for (int i=0;i<N;i++){
     beta+=((double)std::rand()/(double)RAND_MAX)*2*mw;
     while (beta>=health[index]){
+      if (beta == 0) {
+        break;
+      }
       beta-=health[index];
       index=(index+1)%N;
     }
