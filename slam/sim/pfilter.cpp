@@ -1,12 +1,8 @@
 #include "pfilter.h"
 #include "sim_lidar.h"
-<<<<<<< HEAD
 #include "sim_robot.h"
 #include <cmath>
 #include <random>
-=======
-#include <cmath>
->>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 
 using namespace arma;
 using namespace std;
