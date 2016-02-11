@@ -17,18 +17,15 @@ using namespace std;
  *  @param landmarks a list of landmarks, where each landmark is described in sim_landmark.h
  */
 pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) {
-  // TODO
   // STEP 1: store the map and landmark variables
+  this->map = map;
   // STEP 2: create a bunch of particles, place them into this->particles
-  // hint: use .set_pose from the sim_robot class to initialize their poses
-  // STEP 3: initialize the health as a vec of ones
-<<<<<<< HEAD
   int x=0; int y=0; double t=0;
  
-    //sim_robot p = [nparticles];
-    std::default_random_engine generator;
-    std::uniform_int_distribution<int> distribution(0,(*map).n_cols);
-    std::vector<sim_robot> new_particles;
+  //sim_robot p = [nparticles];
+  std::default_random_engine generator;
+  std::uniform_int_distribution<int> distribution(0,(*map).n_cols);
+  std::vector<sim_robot> new_particles;
   for (int i=0;i<nparticles;i++){
     x=distribution(generator);
     y=distribution(generator);
@@ -40,8 +37,9 @@ pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) 
   }
   particles.clear();
   particles = new_particles;
-=======
->>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
+
+  // STEP 3: initialize the health as a vec of ones
+  health = ones<vec>(nparticles);
 }
 
 pfilter::~pfilter(void) {
@@ -52,16 +50,21 @@ pfilter::~pfilter(void) {
  *  @param ws the angular velocity sigma2
  */
 void pfilter::set_noise(double vs, double ws) {
-  // TODO
   // Set the noise for each robot
+  for (sim_robot &bot : this->particles) {
+    bot.set_noise(vs, ws);
+  }
+  this->vs = vs;
+  this->ws = ws;
 }
 
 /** Set the size for each robot
  *  @param r the radius of the robot
  */
 void pfilter::set_size(double r) {
-  // TODO
-  // Set the size for each robot
+  for (sim_robot &bot : this->particles) {
+    bot.set_size(r);
+  }
 }
 
 static double erfinv(double p) {
@@ -95,8 +98,6 @@ static double gaussianNoise(double sigma) {
  *  @param w the angular velocity
  */
 void pfilter::move(double v, double w) {
-  // TODO
-<<<<<<< HEAD
   double xp=0; double yp=0; double tp=0;
   for (int i=0;i<particles.size();i++){
     particles[i].move(v,w);
@@ -105,8 +106,6 @@ void pfilter::move(double v, double w) {
 
 double gauss(double mu, double sigma2) {
   return 1 / sqrt(2 * M_PI * sigma2) * exp(-0.5 * (mu * mu) / sigma2);
-=======
->>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 /** Weigh the "health" of each particle using gaussian error
@@ -114,24 +113,13 @@ double gauss(double mu, double sigma2) {
  *                      and the second row is the y row
  *  @param health the health vector
  */
-<<<<<<< HEAD
 void pfilter::weigh(mat &observations) {
-  // TODO
-  
-  vec weighted_vec = vec(particles.size());
   vec theta = vec(observations.size());
   vec radius(observations.size());
-  //for (int i = 0; i < (int)observations.n_cols; i++) {
-  //  radius[i] = sqrt(observations(0,i) * observations(0,i) + observations(1,i) * observations(1,i));
-  //  theta[i] = atan2(observations(1,i),observations(0,i));
-  //}
   for (int i=0;i<particles.size();i++){
-  
     for(int j=0;j<landmarks.size();j++){
       radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) - pow(landmarks[j].y-particles[i].y, 2));
-      //health[i]*=gauss(weighted_vec[i] - radius[j], vs);
-      theta[j]=atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x);
-      theta[j] -= atan2(observations(1,i),observations(0,i));
+      theta[j]=atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t;
       double newx = radius[j] * cos(theta[j]);
       double newy = radius[j] * sin(theta[j]);
       double distance =sqrt(pow(newx-observations(0,i),2) + pow(newy-observations(1,i),2)); 
@@ -139,25 +127,19 @@ void pfilter::weigh(mat &observations) {
     }
   }
   resample();
-=======
-void pfilter::weigh(mat &observations, vec &health) {
-  // TODO
->>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 /** Resample all the particles based on the health using the resample wheel
  *  @param health the health of all the particles
  */
-<<<<<<< HEAD
 void pfilter::resample(void) {
-  //TODO
   int N = particles.size();
   vector<sim_robot> p2;
   int index = (int)std::rand() % N;
   double beta=0;
   int mw = (int)(max(health));
   for (int i=0;i<N;i++){
-    beta+=((double)std::rand()*2*mw)/ (double)RAND_MAX;
+    beta+=((double)std::rand()/(double)RAND_MAX)*2*mw;
     while (beta>=health[index]){
       beta-=health[index];
       index=(index+1)%N;
@@ -167,25 +149,14 @@ void pfilter::resample(void) {
   particles.clear();
   particles=p2;
 }
-    
-=======
-void pfilter::resample(vec health) {
-  //TODO
-}
 
->>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 /** Call the weigh and resample functions from here
  *  @param observations the observations of the landmarks
  */
 void pfilter::observe(mat observations) {
-  // TODO
-<<<<<<< HEAD
   // each column of obs matches to each col of landmarks
   health=ones<vec>(particles.size());
-
   weigh(observations);
-=======
->>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 /** Predict the position and calculate the error of the particle set
