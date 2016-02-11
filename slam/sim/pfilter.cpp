@@ -187,7 +187,12 @@ void pfilter::predict(vec &mu, double &sigma) {
     mu += vec({ this->particles[i].x, this->particles[i].y, this->particles[i].t });
   }
   mu /= this->particles.size();
-  sigma = 0;
+  sigma = zeros<vec>(3);
+  // var = (Particle's x_i-Mean)^2 / N 
+  for (int i = 0; i < this->particles.size(); i++) {
+    sigma += vec({pow((this->particles[i].x - mu[i][0]),2), pow((this->particles[i].y - mu[i][1]),2), pow((this->particles[i].t - mu[i][2]),2)});
+  }
+  sigma /= this->particles.size();
 }
 
 void pfilter::blit(icube &screen) {
