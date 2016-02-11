@@ -1,8 +1,12 @@
 #include "pfilter.h"
 #include "sim_lidar.h"
+<<<<<<< HEAD
 #include "sim_robot.h"
 #include <cmath>
 #include <random>
+=======
+#include <cmath>
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 
 using namespace arma;
 using namespace std;
@@ -18,6 +22,7 @@ pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) 
   // STEP 2: create a bunch of particles, place them into this->particles
   // hint: use .set_pose from the sim_robot class to initialize their poses
   // STEP 3: initialize the health as a vec of ones
+<<<<<<< HEAD
   int x=0; int y=0; double t=0;
  
     //sim_robot p = [nparticles];
@@ -35,6 +40,8 @@ pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) 
   }
   particles.clear();
   particles = new_particles;
+=======
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 pfilter::~pfilter(void) {
@@ -89,6 +96,7 @@ static double gaussianNoise(double sigma) {
  */
 void pfilter::move(double v, double w) {
   // TODO
+<<<<<<< HEAD
   double xp=0; double yp=0; double tp=0;
   for (int i=0;i<particles.size();i++){
     particles[i].move(v,w);
@@ -97,6 +105,8 @@ void pfilter::move(double v, double w) {
 
 double gauss(double mu, double sigma2) {
   return 1 / sqrt(2 * M_PI * sigma2) * exp(-0.5 * (mu * mu) / sigma2);
+=======
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 /** Weigh the "health" of each particle using gaussian error
@@ -104,6 +114,7 @@ double gauss(double mu, double sigma2) {
  *                      and the second row is the y row
  *  @param health the health vector
  */
+<<<<<<< HEAD
 void pfilter::weigh(mat &observations) {
   // TODO
   
@@ -128,11 +139,16 @@ void pfilter::weigh(mat &observations) {
     }
   }
   resample();
+=======
+void pfilter::weigh(mat &observations, vec &health) {
+  // TODO
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 /** Resample all the particles based on the health using the resample wheel
  *  @param health the health of all the particles
  */
+<<<<<<< HEAD
 void pfilter::resample(void) {
   //TODO
   int N = particles.size();
@@ -152,15 +168,24 @@ void pfilter::resample(void) {
   particles=p2;
 }
     
+=======
+void pfilter::resample(vec health) {
+  //TODO
+}
+
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 /** Call the weigh and resample functions from here
  *  @param observations the observations of the landmarks
  */
 void pfilter::observe(mat observations) {
   // TODO
+<<<<<<< HEAD
   // each column of obs matches to each col of landmarks
   health=ones<vec>(particles.size());
 
   weigh(observations);
+=======
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 }
 
 /** Predict the position and calculate the error of the particle set

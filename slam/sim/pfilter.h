@@ -23,8 +23,13 @@ class pfilter {
     sim_map *map;
 
   private:
+<<<<<<< HEAD
     void weigh(arma::mat &observations);
     void resample(void);
+=======
+    void weigh(arma::mat &observations, arma::vec &health);
+    void resample(arma::vec health);
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 
     double vs;
     double ws;

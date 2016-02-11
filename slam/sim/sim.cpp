@@ -43,7 +43,11 @@ int main() {
 
   // load the map (custom)
   sim_map map;
+<<<<<<< HEAD
   map.load("rand2.png");
+=======
+  map.load("rand1.png");
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
 
   // create the landmarks (custom)
   vector<sim_landmark> landmarks;
@@ -106,7 +110,10 @@ int main() {
     mat sensor_values = lidar.sense();
     mat tag_landmarks;
     sim_tag_extract(tag_landmarks, sensor_values, landmarks, robot, map);
+<<<<<<< HEAD
     //cout<<tag_landmarks;
+=======
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
     pf.observe(tag_landmarks);
     robot.move(forward * 2, (left - right) * .1);
     pf.move(forward * 2, (left - right) * .1);
@@ -122,7 +129,11 @@ int main() {
     for (sim_landmark &lm : landmarks) {
       lm.blit(frame);
     }
+<<<<<<< HEAD
     //lidar.blit(frame);
+=======
+    lidar.blit(frame);
+>>>>>>> 319b19be6a74018905431f5a4ce3e74df54366d0
     pf.blit(frame);
     robot.blit(frame);
     newframe = doubleImageSize(frame);
