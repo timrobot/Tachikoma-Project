@@ -1,12 +1,16 @@
 CPP = g++
-CPPFLAGS = `pkg-config --cflags opencv` -std=c++11 -O3 -g
+CPPFLAGS = `pkg-config --cflags opencv` -std=c++11 -O3 -g -Wall
 COMPILE = $(CPP) $(CPPFLAGS)
 LIBS = `pkg-config --libs opencv` -lchilitags -lpthread
+OBJS = chilitags.o
 
-all: chilitags
+all: test
 
-chilitags: chili_landmarks.cpp
-	$(COMPILE) -o $@ $< $(LIBS)
+test: test.cpp $(OBJS)
+	$(COMPILE) -o $@ $< $(OBJS) $(LIBS)
+
+chilitags.o: chili_landmarks.cpp chili_landmarks.h
+	$(COMPILE) -o $@ -c $<
 
 clean:
-	rm -rfv chilitags
+	rm -rfv test *.o
