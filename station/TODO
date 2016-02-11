@@ -1,0 +1,2 @@
+draw some arc
+get frames from a tcp stream OR get frames from two cameras and then pass through gstreamer
