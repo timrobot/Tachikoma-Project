@@ -13,7 +13,7 @@ LIBS = -L/usr/local/lib \
 			 -lopencv_line_descriptor \
 			 -lopencv_stitching \
 			 -larmadillo
-OBJS = highgui.o imgproc.o draw.o
+OBJS = highgui.o imgproc.o draw.o feature.o
 
 all: test
 
@@ -27,6 +27,9 @@ highgui.o: highgui.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $<
 
 imgproc.o: imgproc.cpp
+	$(CXX) $(CFLAGS) -o $@ -c $<
+
+feature.o: feature.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $<
 
 draw.o: draw.cpp

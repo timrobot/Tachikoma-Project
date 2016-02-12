@@ -1,30 +1,49 @@
 #include <cstdio>
+#include <mutex>
 #include "logger.h"
 
 #define DEFAULT_LOGFILE_NAME  "debuglog.txt"
 
-static int initialized;
+using namespace std;
+using namespace logger;
+
 static FILE *logfile;
+static mutex write_lock;
 
-void logger_open(const char *fname) {
-  if (!initialized) {
-    // append to the file
-    logfile = fopen(fname, "a");
-    initialized = 1;
+bool init(string fname) {
+  if (logfile) {
+    return false;
   }
+  if (fname == "") {
+    fname = DEFAULT_LOGFILE_NAME;
+  }
+  if (access(fname.c_str(), F_OK) != 0) {
+    creat(fname.c_str(), O_WRONLY, O_CREAT | 0644);
+  }
+  logfile = fopen(fname.c_str(), "a+");
+  return true;
 }
 
-void logger_log(const char *log) {
-  if (!initialized) {
-    logger_init(DEFAULT_LOGFILE_NAME);
+void log(string tag, string msg) {
+  if (!logfile) {
+    init();
   }
-  fprintf(logfile, "%s", log);
+  time_t t = time(0);
+  struct tm *now = localtime(&t);
+  write_lock.lock();
+  fprintf(logfile, "{%04d-%02d-%02d.%02d:%02d:%02d} [%s] %s\n",
+      now->tm_year,
+      now->tm_mon,
+      now->tm_mday,
+      now->tm_hour,
+      now->tm_min,
+      now->tm_sec,
+      tag.c_str(),
+      log.c_str());
+  write_lock.unlock();
 }
 
-void logger_close(void) {
-  if (initialized) {
-    fclose(logfile);
-    logfile = NULL;
-    initialized = 0;
-  }
+void destroy(void) {
+  fclose(logfile);
+  logfile = NULL;
 }

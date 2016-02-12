@@ -15,7 +15,7 @@ void stopkinect(int signum) {
 }
 
 uint16_t sigfun(double x) {
-  return (uint16_t)(x * 150.0);
+  return (uint16_t)(x * 120.0);
 }
 
 Vec3b raw2bgr(uint16_t raw) {
@@ -25,7 +25,7 @@ Vec3b raw2bgr(uint16_t raw) {
       bgr[0] = raw * 255 / 410;
       break;
     case 1:
-      bgr[0] = 255;
+      bgr[2] = 255;
       raw -= 410;
       bgr[1] = raw * 255 / 410;
       break;
@@ -33,22 +33,23 @@ Vec3b raw2bgr(uint16_t raw) {
       bgr[1] = 255;
       raw -= 820;
       raw = 410 - raw;
-      bgr[0] = raw * 255 / 410;
+      bgr[2] = raw * 255 / 410;
       break;
     case 3:
       bgr[1] = 255;
       raw -= 1230;
-      bgr[2] = raw * 255 / 410;
+      bgr[0] = raw * 255 / 410;
       break;
     case 4:
-      bgr[2] = 255;
+      bgr[0] = 255;
       raw -= 1640;
       raw = 410 - raw;
       bgr[1] = raw * 255 / 410;
     default:
-      bgr[0] = 255;
-      bgr[1] = 255;
-      bgr[2] = 255;
+      // change the color to black
+      bgr[0] = 0;
+      bgr[1] = 0;
+      bgr[2] = 0;
       break;
   }
   return bgr;
@@ -75,12 +76,12 @@ int main(int argc, char ** argv) {
 
   // get frames
   while (!stopsig) {
-    //kinect.getDepth(distance);
-    /*Mat depth = getDepthAsBGR(distance);
+    kinect.getDepth(distance);
+    Mat depth = getDepthAsBGR(distance);
     imshow("kinect", depth);
     if ((waitKey(1) & 0x0F) == 'q') {
       break;
-    }*/
+    }
   }
 
   // end

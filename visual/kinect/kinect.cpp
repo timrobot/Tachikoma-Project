@@ -1,12 +1,10 @@
 #include <cstdio>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <cmath>
+#include <opencv2/imgproc/imgproc.hpp>
 #include "kinect.h"
 
 using namespace cv;
 using namespace std;
-
-//static int kinectCount;
 
 /* This file accesses the Kinect Device and gets its video and depth frames. If a depth frame is deteced, a new distance frame is created as well */
 
@@ -35,7 +33,7 @@ KinectDevice::~KinectDevice() {
 
 void KinectDevice::DepthCallback(void *data, uint32_t timestamp) {
   this->depth_lock.lock();
-  this->depthMat.data = (uint8_t *)(uint16_t *)data;
+  this->depthMat.data = (uint8_t *)data;
   this->new_depth_frame = true;
   this->new_distance_frame = true;
   this->depth_lock.unlock();

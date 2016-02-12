@@ -1,15 +1,15 @@
 #ifndef __TK_LOGGER_H__
 #define __TK_LOGGER_H__
 
-#include <armadillo>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
-#define LOGGER_GRAY 1
-#define LOGGER_RGB  2
-#define LOGGER_ARGB 3
+namespace logger {
 
-void logger_open(const char *fname);
-void logger_log(const char *log);
-void logger_disp(const arma::cube &image, int type);
-void logger_close(void);
+  bool init(std::string fname = "");
+  void log(std::string tag, std::string msg);
+  void destroy(void);
+
+};
 
 #endif
