@@ -251,6 +251,7 @@ int main() {
     } else if (xBoxController.HOME) {
       velocity_en = false;
       position_en = false;
+      leg_vel.zeros();
       tachikoma.move(leg_pos, leg_vel, wheels, zeros<mat>(1, 1), position_en, velocity_en);
       stopsig = true;
       break; // get out of the loop! will shut down the robot
@@ -364,38 +365,39 @@ int main() {
           // reset the state
           case  1: gait[0] = 0; gait[1] = 0; gait[2] = 0; gait[3] = 0; tiltstate = 0; break;
           // start of the back left leg motion
-          case  2: gait[0] = 0; gait[1] = 1; gait[2] = 4; gait[3] = 0; tiltstate = 2; break;
-          case  3: gait[0] = 0; gait[1] = 1; gait[2] = 1; gait[3] = 0; tiltstate = 2; break;
-          case  4: gait[0] = 0; gait[1] = 1; gait[2] = 2; gait[3] = 0; tiltstate = 2; break;
+          case  2: gait[0] = 0; gait[1] = 0; gait[2] = 0; gait[3] = 0; tiltstate = 2; break;
+          case  3: gait[0] = 0; gait[1] = 0; gait[2] = 1; gait[3] = 0; tiltstate = 2; break;
+          case  4: gait[0] = 0; gait[1] = 0; gait[2] = 2; gait[3] = 0; tiltstate = 2; break;
           // end of the back left leg motion
           case  5: gait[0] = 0; gait[1] = 0; gait[2] = 3; gait[3] = 0; tiltstate = 1; break;
           // start of the back right leg motion
-          case  6: gait[0] = 1; gait[1] = 0; gait[2] = 3; gait[3] = 4; tiltstate = 0; break;
-          case  7: gait[0] = 1; gait[1] = 0; gait[2] = 3; gait[3] = 1; tiltstate = 0; break;
-          case  8: gait[0] = 1; gait[1] = 0; gait[2] = 3; gait[3] = 2; tiltstate = 0; break;
+          case  6: gait[0] = 0; gait[1] = 0; gait[2] = 3; gait[3] = 0; tiltstate = 0; break;
+          case  7: gait[0] = 0; gait[1] = 0; gait[2] = 3; gait[3] = 1; tiltstate = 0; break;
+          case  8: gait[0] = 0; gait[1] = 0; gait[2] = 3; gait[3] = 2; tiltstate = 0; break;
           // end of the back right leg motion
           case  9: gait[0] = 0; gait[1] = 0; gait[2] = 3; gait[3] = 3; tiltstate = 2; break;
           // start of the front left leg motion
-          case 10: gait[0] = 4; gait[1] = 0; gait[2] = 3; gait[3] = 2; tiltstate = 3; break;
-          case 11: gait[0] = 1; gait[1] = 0; gait[2] = 3; gait[3] = 2; tiltstate = 3; break;
-          case 12: gait[0] = 2; gait[1] = 0; gait[2] = 3; gait[3] = 2; tiltstate = 3; break;
+          case 10: gait[0] = 0; gait[1] = 0; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
+          case 11: gait[0] = 1; gait[1] = 0; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
+          case 12: gait[0] = 2; gait[1] = 0; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
           // end of the front left leg motion
           case 13: gait[0] = 3; gait[1] = 0; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
           // start of the front right leg motion
-          case 14: gait[0] = 3; gait[1] = 4; gait[2] = 2; gait[3] = 3; tiltstate = 1; break;
-          case 15: gait[0] = 3; gait[1] = 1; gait[2] = 2; gait[3] = 3; tiltstate = 1; break;
-          case 16: gait[0] = 3; gait[1] = 2; gait[2] = 2; gait[3] = 3; tiltstate = 1; break;
+          case 14: gait[0] = 3; gait[1] = 0; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
+          case 15: gait[0] = 3; gait[1] = 1; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
+          case 16: gait[0] = 3; gait[1] = 2; gait[2] = 3; gait[3] = 3; tiltstate = 3; break;
           // end of the front right leg motion
           case 17: gait[0] = 3; gait[1] = 3; gait[2] = 3; gait[3] = 3; tiltstate = 4; break;
         }
         // map each leg's state to actual positions
         double coeff[] = { -1.0, 1.0, -1.0, 1.0 }; // set these up
         double coeff2[] = { -1.0, 1.0, 1.0, -1.0 }; // set these up
-        double variance = M_PI_4/3;
+        double variance = M_PI_4/2;
         double bias = M_PI_4/4;
+        tiltstate = 0;
         for (int i = 0; i < NUM_LEGS; i++) {
           if (gait[i] == 0) {
-            leg_pos(i, THIGH) = bias;
+            leg_pos(i, THIGH) = bias + variance;
             leg_pos(i, WAIST) = (-coeff[i] / 2 - coeff2[i] / 2 - coeff[i] / 4 * tiltstate) * M_PI_4/2;
           }
           if (gait[i] == 1) {
@@ -407,7 +409,7 @@ int main() {
             leg_pos(i, WAIST) = (coeff[i] / 2 - coeff2[i] / 2 - coeff[i] / 4 * tiltstate) * M_PI_4/2;
           }
           if (gait[i] == 3) {
-            leg_pos(i, THIGH) = bias;
+            leg_pos(i, THIGH) = bias + variance;
             leg_pos(i, WAIST) = (coeff[i] / 2 - coeff2[i] / 2 - coeff[i] / 4 * tiltstate) * M_PI_4/2;
           }
           if (gait[i] == 4) {
