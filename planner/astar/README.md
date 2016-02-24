@@ -1,9 +1,8 @@
 Authors: Ming Tai Ha
 (Except he was too lazy to put his own name in here so I put it in here instead)
-Timothy Yong
 
 NOTE: This is a minimalistic A* from a bird's eye view.
-Continue to minimize the environmental representation as much as possible
+Only to do local map resolution
 
 Running the Simulation
 
