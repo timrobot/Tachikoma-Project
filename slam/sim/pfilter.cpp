@@ -12,21 +12,21 @@ using namespace std;
  *  @param map the pointer to the map (just store it)
  *  @param landmarks a list of landmarks, where each landmark is described in sim_landmark.h
  */
-pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks) {
+pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks, int x, int y, int t) {
   // STEP 1: store the map and landmark variables
   this->map = map;
   this->landmarks = landmarks;
-  // STEP 2: create a bunch of particles, place them into this->particles
-  int x=0; int y=0; double t=0;
 
-  //sim_robot p = [nparticles];
-  std::default_random_engine generator;
-  std::uniform_int_distribution<int> distribution(0,(*map).n_cols);
-  std::vector<sim_robot> new_particles;
-  for (int i=0;i<nparticles;i++){
-    x=distribution(generator);
-    y=distribution(generator);
-    t=std::rand()*(int)(2*M_PI) % (360);
+  // STEP 2: create a bunch of particles, place them into this->particles
+  default_random_engine generator;
+  normal_distribution<double> xd(x, 12.0);
+  normal_distribution<double> yd(y, 12.0);
+  normal_distribution<double> td(t, 5.0);
+  vector<sim_robot> new_particles;
+  for (int i = 0; i < nparticles; i++) {
+    x = round(xd(generator));
+    y = round(yd(generator));
+    t = ((int)round(td(generator)) % 360) * M_PI / 180;
     sim_robot newbot; 
     newbot.set_pose(x,y,t);
     new_particles.push_back(newbot);
@@ -63,29 +63,6 @@ void pfilter::set_size(double r) {
   }
 }
 
-static double erfinv(double p) {
-  // DO NOT CHANGE THIS FUNCTION
-  // approximate maclaurin series (refer to http://mathworld.wolfram.com/InverseErf.html)
-  double sqrt_pi = sqrt(M_PI);
-  vec a = {
-    0.88623,
-    0.23201,
-    0.12756,
-    0.086552
-  };
-  vec x(a.n_elem);
-  for (int i = 0; i < x.n_elem; i++) {
-    x(i) = pow(p, 2 * i + 1);
-  }
-  return dot(a,x);
-}
-
-static double gaussianNoise(double sigma) {
-  // Utility function: can be use to simulate gaussian noise
-  double p = (double)rand() / ((double)RAND_MAX / 2) - 1;
-  return erfinv(p) * sigma;
-}
-
 /** Move each robot by some velocity and angular velocity
  *  In here, also detect if the robot's position goes out of range,
  *  and handle it
@@ -93,10 +70,9 @@ static double gaussianNoise(double sigma) {
  *  @param v the velocity
  *  @param w the angular velocity
  */
-void pfilter::move(double v, double w) {
-  double xp=0; double yp=0; double tp=0;
-  for (int i=0;i<particles.size();i++){
-    particles[i].move(v,w);
+void pfilter::move(double vx, double vy, double w) {
+  for (int i = 0; i < particles.size(); i++){
+    particles[i].move(vx,vy,w);
     // circular world!!!!
     sim_robot &bot = particles[i];
     if (bot.x < 0) {
@@ -119,7 +95,7 @@ double gauss(double mu, double sigma2) {
 }
 
 /** Weigh the "health" of each particle using gaussian error
- *  @param observations a 2xn matrix, where the first row is the x row,
+ *  @param observations a 3xn matrix, where the first row is the x row,
  *                      and the second row is the y row
  *  @param health the health vector
  */
@@ -132,10 +108,10 @@ void pfilter::weigh(mat &observations) {
     R[i] = sqrt(dot(observations.col(i), observations.col(i)));
     T[i] = atan2(observations(1,i), observations(0,i));
   }
-  for (int i=0;i<particles.size();i++){
-    for(int j=0;j<landmarks.size();j++){
+  for (int i = 0; i < particles.size(); i++){
+    for(int j = 0; j < landmarks.size(); j++){
       radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) + pow(landmarks[j].y-particles[i].y, 2)); // radius of the robot
-      theta[j]=atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t; // theta of the robot
+      theta[j] = atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t; // theta of the robot
       this->health[i] *= gauss(R[j]-radius[j],vs);
       this->health[i] *= gauss(T[j]-theta[j],ws);
     }
@@ -149,22 +125,22 @@ void pfilter::weigh(mat &observations) {
 void pfilter::resample(void) {
   int N = particles.size();
   vector<sim_robot> p2;
-  int index = (int)std::rand() % N;
+  int index = (int)rand() % N;
   double beta=0;
   double mw = (max(health));
-  for (int i=0;i<N;i++){
-    beta+=((double)std::rand()/(double)RAND_MAX)*2*mw;
-    while (beta>=health[index]){
+  for (int i = 0; i < N; i++){
+    beta += ((double)rand() / (double)RAND_MAX) * 2 * mw;
+    while (beta >= health[index]){
       if (beta == 0) {
         break;
       }
-      beta-=health[index];
+      beta -= health[index];
       index=(index+1)%N;
     }
     p2.push_back(particles[index]);
   }
   particles.clear();
-  particles=p2;
+  particles = p2;
 }
 
 /** Call the weigh and resample functions from here
@@ -180,17 +156,17 @@ void pfilter::observe(mat observations) {
  *  @param mu (output) the position ( x, y, theta )
  *  @param sigma (output) the error
  */
-void pfilter::predict(vec &mu, double &sigma) {
-  // TODO
+void pfilter::predict(vec &mu, mat &sigma) {
   mu = zeros<vec>(3);
   for (int i = 0; i < this->particles.size(); i++) {
     mu += vec({ this->particles[i].x, this->particles[i].y, this->particles[i].t });
   }
   mu /= this->particles.size();
-  sigma = zeros<vec>(3);
+  sigma = zeros<mat>(3, 3);
   // var = (Particle's x_i-Mean)^2 / N 
   for (int i = 0; i < this->particles.size(); i++) {
-    sigma += vec({pow((this->particles[i].x - mu[i][0]),2), pow((this->particles[i].y - mu[i][1]),2), pow((this->particles[i].t - mu[i][2]),2)});
+    vec pvec({ this->particles[i].x, this->particles[i].y, this->particles[i].t });
+    sigma += pvec * pvec.t();
   }
   sigma /= this->particles.size();
 }
