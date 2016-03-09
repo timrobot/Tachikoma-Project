@@ -133,20 +133,24 @@ void Arm::send(
     omega[i] = limitf(arm_vel(i), -1.0, 1.0);
   }
 
+  char instr_activate = 0x80 | ((arm_theta_act && this->calibrated()) ? 0x01 : 0x00) |
+    (arm_vel_act ? 0x02 : 0x00);
+
   char msg[WBUFSIZE];
   for (size_t i = 0; i < this->connections.size(); i++) {
     if (this->ids[i] > 0 && this->ids[i] <= 1) {
       switch ((devid = this->ids[i])) {
 
+        // the arm device is actually 3 joints: base, pivot1, and pivot2
         case ARM:
           sprintf(msg, "[%d %d %d %d %d %d %d]\n",
-              arm_theta_en,
+              instr_activate,
               (int)(arm[SH_YAW]),
               (int)(arm[SH_PITCH]),
               (int)(arm[EL_PITCH]),
-              (int)(arm[WR_PITCH]),
-              (int)(arm[WR_ROLL]),
-              (int)(arm[HA_OPEN]));
+              (int)(omega[SH_YAW]),
+              (int)(omega[SH_PITCH]),
+              (int)(omega[EL_PITCH]));
           serial_write(this->connections[i], msg);
           break;
 
@@ -169,19 +173,14 @@ vec Arm::recv() {
         case ARM:
           if ((msg = serial_read(this->connections[i]))) {
             int sensor[6];
-            sscanf(msg, "[%d %d %d %d %d %d %d]\n", &this->ids[i],
+            sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
                 &sensor[0],
                 &sensor[1],
                 &sensor[2],
-                &sensor[3],
-                &sensor[4],
-                &sensor[5]);
+                &sensor[3]);
             this->arm_read(SH_YAW)   = sensor[0];
             this->arm_read(SH_PITCH) = sensor[1];
             this->arm_read(EL_PITCH) = sensor[2];
-            this->arm_read(WR_PITCH) = sensor[3];
-            this->arm_read(WR_ROLL)  = sensor[4];
-            this->arm_read(HA_OPEN)  = sensor[5];
           }
           break;
 
@@ -283,6 +282,48 @@ vec Arm::sense() {
   vec arm_sensors = this->buffered_arm_sensors;
   this->rlock->unlock();
   return arm_sensors;
+}
+
+mat Rotate(double xy, double yz, double zx) {
+  mat X = reshape(map({
+        cos(xy), -sin(xy), 0,
+        sin(xy), cos(xy), 0,
+        0, 0, 1
+        }), 3, 3).t();
+  mat Y = reshape(map({
+        1, 0, 0,
+        0, cos(yz), -sin(yz),
+        0, sin(yz), cos(yz)
+        }), 3, 3).t();
+  mat Z = reshape(map({
+        cos(zx), 0, sin(zx),
+        0, 1, 0,
+        -sin(zx), 0, cos(zx)
+        }), 3, 3).t();
+  return Z * Y * X;
+}
+
+vec Arm::fk_solve(const vec &enc, int legid) {
+  double cosv;
+  double sinv;
+
+  // solve arm (using D-H notation)
+
+  vec pos({ 1.0, 0, 0 });
+
+  double base   = enc(0);
+  double pivot1 = enc(1);
+  double pivot2 = enc(2);
+
+  mat P0 = Rotate(base);
+  mat P1 = Rotate(pivot1);
+  mat P2 = Rotate(pivot2);
+
+  pos = P2 * pos + vec({ 1.0, 0, 0 });
+  pos = P1 * pos + vec({ 0.5, 0, 0 });
+  pos = P0 * pos + vec({ 0.5, 0, 0 });
+
+  return pos;
 }
 
 /** STATIC FUNCTIONS **/
