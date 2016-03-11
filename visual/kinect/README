@@ -1,0 +1,6 @@
+Requires:
+kinectv1
+kinectv2
+
+libfreenect
+libfreenect2

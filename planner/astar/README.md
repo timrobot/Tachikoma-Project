@@ -1,6 +1,6 @@
-Authors: Ming Tai Ha
+Author: Ming Tai Ha
 (Except he was too lazy to put his own name in here so I put it in here instead)
-Timothy Yong
+-Timothy Yong
 
 NOTE: This is a minimalistic A* from a bird's eye view.
 Only to do local map resolution

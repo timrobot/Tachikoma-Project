@@ -48,9 +48,12 @@ void svec::clear(void) {
 void svec::erase(int index) {
   memmove(&data[index], &data[index+1], sizeof(state *) * _size-index-1);
   _size--;
+  if (_size == 0) {
+    clear();
+  }
 }
 
-void svec::push_back(state *v) {
+void svec::push_back(state *item) {
   if (max_size <= _size + 1) {
     size_t old_size = max_size;
     max_size = (max_size == 0) ? 1 : max_size * 2;
@@ -61,7 +64,7 @@ void svec::push_back(state *v) {
     }
     data = newdat;
   }
-  data[_size++] = v;
+  data[_size++] = item;
 }
 
 void svec::pop_back(void) {

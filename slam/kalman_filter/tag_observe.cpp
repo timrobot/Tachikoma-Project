@@ -62,3 +62,5 @@ void tag_observe(mat obs, mat pos, ivec active, vec &mu, mat &sigma) {
   sigma(span(0,1), span(0,1)) = possigma;
   sigma(2, 2) = thetasigma;
 }
+
+void tag_generate(mat 

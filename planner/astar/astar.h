@@ -9,17 +9,24 @@
 #include <armadillo>
 #include "searchtree.h"
 
-#define G_MIN 0
-#define G_MAX 1
-#define F_FORWARD 0
-#define F_BACKWARD 1
+enum Ftype { F_FORWARD, F_BACKWARD };
+enum Gtype { G_MIN, G_MAX };
+enum Htype { H_MANHATTAN, H_EUCLIDEAN };
+
+class AStarProp {
+  public:
+    AStarProp(enum Ftype f, enum Gtype g, enum Htype h, bool adaptive) :
+      f(f), g(g), h(h), adaptive(adaptive) {}
+    enum Ftype f;
+    enum Gtype g;
+    enum Htype h;
+    bool adaptive;
+};
 
 class AStar {
   public:
-    AStar(arma::imat map, arma::ivec &start, arma::ivec &goal,
-        int forward_mode = F_FORWARD,
-        int heuristic_mode = H_REPEATED,
-        int tie_mode = G_MAX);
+    AStar(Map &map, arma::ivec &start, arma::ivec &goal,
+      AStarProp prop = AStarProp(F_FORWARD, G_MAX, H_EUCLIDEAN, false));
     ~AStar(void);
     void compute(void);
     void decision_space(std::vector<arma::ivec> &path);
@@ -35,11 +42,8 @@ class AStar {
     searchtree tree;
 	  state * fin;
 	  bool isComplete;
+    AStarProp prop;
 
-    // flags
-    int forward_mode;
-    int heuristic_mode;
-    int tie_mode;
 };
 
 #endif

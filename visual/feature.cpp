@@ -53,7 +53,6 @@ mat canny2(const mat &F, double low, double high, uword n, double sigma2) { // n
   H = nmm2(G, T);
   G /= G.max(); // normalise
   // double threshold
-  cout << high << endl;
   mat strong = (G >= high) % H;
   mat weak = (low < G && G < high) % H;
   // hysteresis edge-tracking

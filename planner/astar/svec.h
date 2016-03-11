@@ -6,7 +6,7 @@
 
 class svec {
   public:
-    svec(int initsize=0);
+    svec(int initsize = 0);
     ~svec(void);
 
     state *&operator[](int index);
@@ -22,7 +22,7 @@ class svec {
     void clear(void);
     void erase(int index); // SLOW
 
-    void push_back(state *v);
+    void push_back(state *item);
     void pop_back(void);
 
     size_t _size;

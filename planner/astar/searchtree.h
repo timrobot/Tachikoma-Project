@@ -14,28 +14,8 @@
 using namespace std;
 using namespace arma;
 
-ostream &operator<<(ostream &out, state &cur_state);
-
-class heap_n {
-
-	public:
-
-		heap_n();
-		~heap_n();
-		void swap(int a, int b);
-		void siftup();
-		void siftdown();
-		void insert(state * item);
-		state * remove();
-		bool isEmpty();
-
-		svec queue;
-};
-
 class searchtree {
-
 	public:
-		
 		searchtree();
 		searchtree(int start_x, int start_y, int goal_x, int goal_y, imat &map);
 		void init(int start_x, int start_y, int goal_x, int goal_y, imat &map);
@@ -50,9 +30,8 @@ class searchtree {
 		int start_y;
 		int goal_x;
 		int goal_y;
-		state * root;
-		heap_n pqueue;
-
+		state *root;
+		heap pqueue;
 };
 
 #endif

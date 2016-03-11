@@ -2,8 +2,6 @@
 //	[Author] = Ming Tai Ha
 //
 
-
-
 #include "astar.h"
 #include "searchtree.h"
 #include "maze_gen.h"
@@ -16,8 +14,6 @@
 using namespace arma;
 using namespace std;
 
-#define TESTING 0
-
 /** The goal of this function is to initialize the AStar algorithm,
  *  including any data structures which you are to use in the
  *  computation of the next state
@@ -25,16 +21,14 @@ using namespace std;
  *  @param start This is the starting position of the robot
  *  @param goal This is the goal of the robot
  */
-AStar::AStar(imat map, ivec &start, ivec &goal, int forward_mode, int heuristic_mode, int tie_mode) {
-  this->fin = NULL;
-  isComplete = 0;
-  this->start = start;
-  this->goal = goal;
-  tree.init(this->start(0), this->start(1), this->goal(0), this->goal(1), map);
-  this->map = map;
-  this->forward_mode = forward_mode;
-  this->heuristic_mode = heuristic_mode;
-  this->tie_mode = tie_mode;
+AStar::AStar(imat map, ivec &start, ivec &goal, int forward_mode, int heuristic_mode, int tie_mode) :
+    fin(NULL),
+    isComplete(false),
+    start(start),
+    goal(goal),
+    map(map),
+    prop(prop),
+    tree(start(0), start(1), goal(0), goal(1), map) {
 }
 
 AStar::~AStar(void) {
@@ -46,8 +40,8 @@ AStar::~AStar(void) {
  *  into the search space
  */
 void AStar::compute(void) {
-  assert(!tree.pqueue.isEmpty());
-  state * choice;
+  assert(!pqueue.empty());
+  state *choice;
   svec breaktie;
 
   // STEP 1: Grab a list of minimum positions from the priority queue
@@ -126,7 +120,7 @@ void AStar::decision_space(vector<ivec> &path) {
  */
 void AStar::final_decision(vector<ivec> &path) {
   path.clear();
-  for (state * step = fin; step != NULL; step = step->parent) {
+  for (state *step = fin; step != NULL; step = step->parent) {
     path.push_back({ step->x, step->y });
   }	
 }
@@ -144,12 +138,3 @@ bool AStar::impossible(void) {
 bool AStar::complete(void) {
   return isComplete;
 }
-
-#if TESTING
-
-int main() {
-
-  return 0;
-}
-
-#endif

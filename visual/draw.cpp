@@ -86,14 +86,14 @@ void draw_line(cube &I, const vec &v, vec pt1, vec pt2) {
 
 // breaks at limiting cases
 void draw_circle(mat &I, double v, vec pt, double radius) {
-  int x = (int)round(pt(1));
-  int y = (int)round(pt(0));
   for (double tr = 0; tr < 2 * M_PI * radius; tr += 1.0) {
     double theta = tr / radius;
-    double X = (double)x + cos(theta) * radius;
-    double Y = (double)y + sin(theta) * radius;
-    if (X >= 0 && X < I.n_cols && Y >= 0 && Y < I.n_rows) {
-      I((int)X, (int)Y) = v;
+    double Y = pt(0) + sin(theta) * radius;
+    double X = pt(1) + cos(theta) * radius;
+    int y = (int)round(Y);
+    int x = (int)round(X);
+    if (x >= 0 && x < (int)I.n_cols && y >= 0 && y < (int)I.n_rows) {
+      I(y, x) = v;
     }
   }
 }

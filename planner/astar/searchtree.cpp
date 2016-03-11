@@ -9,83 +9,7 @@
 #include <cassert>
 #include <armadillo>
 
-#define hparent(index) (((index)-1)/2)
-#define lchild(index)  (((index)*2)+1)
-#define rchild(index)  (((index)*2)+2)
-
-#define TESTING 0
-
 using namespace std;
-
-/// ------------ HEAP -------------- ///
-
-heap_n::heap_n() {
-}
-
-heap_n::~heap_n() {
-}
-
-void heap_n::swap(int a, int b) {
-  state * temp = this->queue[a];
-  this->queue[a] = this->queue[b];
-  this->queue[b] = temp;
-}
-
-void heap_n::siftup() {
-  assert(this->queue.size() > 0);
-  int index = this->queue.size() - 1;
-  while(index != 0) {
-    if (*(queue[index]) < *(queue[hparent(index)])) {
-      this->swap(index, hparent(index));
-      index = hparent(index);
-    } else {
-      break;
-    }
-  }
-}
-
-void heap_n::siftdown() {
-  int index = this->queue.size() - 1;
-  int ptr = 0;
-
-  int swap_target = lchild(ptr);
-  while (swap_target <= index) {
-    if (rchild(ptr) <= index && *(this->queue[rchild(ptr)]) < *(this->queue[lchild(ptr)])) {
-      swap_target = rchild(ptr);
-    }
-    if (*(this->queue[swap_target]) < *(this->queue[ptr])) {
-      this->swap(swap_target, ptr);
-      ptr = swap_target;
-      swap_target = lchild(ptr);
-    } else {
-      break;
-    }
-  }
-}
-
-void heap_n::insert(state * item) {
-  this->queue.push_back(item);
-  this->siftup();
-}
-
-
-state * heap_n::remove() {
-  if (this->queue.size() == 0) {
-    return NULL;
-  } else {
-    state * s = this->queue[0];
-    this->swap(0, this->queue.size()-1);
-    this->queue.pop_back();
-    this->siftdown();
-    return s;
-  }
-}
-
-bool heap_n::isEmpty() {
-  return this->queue.size() == 0;
-}
-
-/// ------------ SEARCHTREE -------------- /// 
 
 searchtree::searchtree() {
 }
@@ -106,14 +30,13 @@ void searchtree::init(int start_x, int start_y, int goal_x, int goal_y, imat &ma
   root = NULL;
   state * temp = new state(start_x, start_y, NULL, map);
   temp->setG(start_x, start_y);
-  temp->setH(goal_x, goal_y, start_x, start_y);
   pqueue.insert(temp);
   this->opened(start_y, start_x) = 1;
 }
 
 searchtree::~searchtree() {
   // delete all open nodes
-  for (state * s : pqueue.queue) {
+  for (state *s : pqueue.queue) {
     delete s;
   }
   pqueue.queue.clear();
@@ -171,13 +94,3 @@ void searchtree::addToTree(state * node) {
     node->parent->children[childid(node->x, node->y, node->parent->x, node->parent->y)] = node;
   }
 }
-
-/// ------------ TESTING -------------- ///
-
-#if TESTING
-
-int main() {
-  return 0;
-}
-
-#endif
