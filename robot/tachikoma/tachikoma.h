@@ -81,7 +81,6 @@ class Tachikoma : public BaseRobot {
         const arma::mat &leg_theta,
         const arma::mat &leg_vel,
         const arma::vec &wheels,
-        const arma::mat &arm_theta,
         bool leg_theta_act = false,
         bool leg_vel_act = true);
 
@@ -136,7 +135,6 @@ class Tachikoma : public BaseRobot {
         const arma::mat &leg_theta,
         const arma::mat &leg_vel,
         const arma::vec &wheels,
-        const arma::mat &arm_theta,
         bool leg_theta_act = false,
         bool leg_vel_act = true);
     void sense(
@@ -146,6 +144,8 @@ class Tachikoma : public BaseRobot {
     /** easier than move
      */
     void set_motors(
+        const bool vel_en,
+        const bool pos_en,
         const double top_left_waist_vel,
         const double top_right_waist_vel,
         const double bottom_left_waist_vel,
@@ -165,20 +165,14 @@ class Tachikoma : public BaseRobot {
         const double top_left_thigh_pos,
         const double top_right_thigh_pos,
         const double bottom_left_thigh_pos,
-        const double bottom_right_thigh_pos,
-        const double top_left_wheel_pos,
-        const double top_right_wheel_pos,
-        const double bottom_left_wheel_pos,
-        const double bottom_right_wheel_pos);
+        const double bottom_right_thigh_pos);
 
-    // updated on send
-    arma::mat leg_write;
     // updated on recv
-    arma::mat leg_read;
-    arma::mat leg_fback;
+    arma::mat leg_read_pot;
+    arma::mat leg_read_input;
     arma::vec current_reading;
     // updated on forward kinematics
-    arma::mat leg_positions;
+    //arma::mat leg_positions;
     // parameters
     arma::mat leg_min;
     arma::mat leg_max;
@@ -197,8 +191,7 @@ class Tachikoma : public BaseRobot {
 
     arma::mat buffered_leg_theta;
     arma::mat buffered_leg_vel;
-    arma::mat buffered_wheels;
-    arma::mat buffered_arm_theta;
+    arma::vec buffered_wheels;
     bool buffered_leg_theta_act;
     bool buffered_leg_vel_act;
     arma::mat buffered_leg_sensors;
@@ -206,7 +199,6 @@ class Tachikoma : public BaseRobot {
     struct timeval prevwritetime;
 
     bool calibration_loaded;
-    char instruction_activate;
 };
 
 #endif

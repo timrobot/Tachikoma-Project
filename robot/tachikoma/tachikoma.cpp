@@ -1,14 +1,11 @@
 /****************************************
  *
- * The purpose of this program is to do 
- * the following for this particular bot:      
+ * The purpose of this API is to do 
+ * the following for this particular bot:
  *
  *  1) control the robot through
  *     abstracted methods
  *  2) send back sensor map values
- *
- *  TODO: look into why the some of the
- *  conversion functions dont work
  *
  ***************************************/
 
@@ -26,7 +23,6 @@
 #include "tachikoma.h"
 
 #define WBUFSIZE  128
-#define NCOMCNTR  4
 #define FPS 10
 
 using namespace arma;
@@ -41,9 +37,8 @@ static double secdiff(struct timeval &t1, struct timeval &t2);
 /** CLASS FUNCTIONS **/
 
 Tachikoma::Tachikoma(void) : BaseRobot(TACHIKOMA) {
-  this->leg_write = zeros<mat>(NUM_LEGS, NUM_JOINTS * 2 + 1);
-  this->leg_read = zeros<mat>(NUM_LEGS, NUM_JOINTS + 1);
-  this->leg_fback = zeros<mat>(NUM_LEGS, NUM_JOINTS * 2 + 1);
+  this->leg_read_pot = zeros<mat>(NUM_LEGS, NUM_JOINTS + 1);
+  this->leg_read_input = zeros<mat>(NUM_LEGS, NUM_JOINTS + 1);
   this->leg_positions = zeros<mat>(NUM_LEGS, 3);
   this->leg_min = zeros<mat>(NUM_LEGS, NUM_JOINTS);
   this->leg_max = zeros<mat>(NUM_LEGS, NUM_JOINTS);
@@ -56,13 +51,11 @@ Tachikoma::Tachikoma(void) : BaseRobot(TACHIKOMA) {
   this->buffered_leg_theta = zeros<mat>(NUM_LEGS, NUM_JOINTS);
   this->buffered_leg_vel = zeros<mat>(NUM_LEGS, NUM_JOINTS);
   this->buffered_wheels = zeros<vec>(NUM_LEGS);
-  this->buffered_arm_theta = zeros<mat>(1, 1);
   this->buffered_leg_theta_act = false;
   this->buffered_leg_vel_act = false;
   this->buffered_leg_sensors = zeros<mat>(NUM_LEGS, NUM_JOINTS + 1);
   this->buffered_leg_feedback = zeros<mat>(NUM_LEGS, NUM_JOINTS * 2 + 1);
   this->calibration_loaded = false;
-  this->instruction_activate = 0;
   memset(&this->prevwritetime, 0, sizeof(struct timeval));
   gettimeofday(&this->prevwritetime, NULL);
 }
@@ -73,7 +66,7 @@ Tachikoma::~Tachikoma(void) {
         zeros<mat>(NUM_LEGS, NUM_JOINTS),
         zeros<mat>(NUM_LEGS, NUM_JOINTS),
         zeros<vec>(NUM_LEGS),
-        zeros<mat>(1, 1), false, false); // change arm specification
+        false, false);
     this->reset();
     this->disconnect();
     printf("[TACHIKOMA] Disconnected.\n");
@@ -92,7 +85,7 @@ bool Tachikoma::connect(void) {
         zeros<mat>(NUM_LEGS, NUM_JOINTS),
         zeros<mat>(NUM_LEGS, NUM_JOINTS),
         zeros<vec>(NUM_LEGS),
-        zeros<mat>(1, 1), false, false); // change arm specification
+        false, false);
 
     // create locks for the data
     this->read_lock = new mutex;
@@ -113,14 +106,18 @@ int Tachikoma::numconnected(void) {
 }
 
 void Tachikoma::disconnect(void) {
-  if (this->manager_running) {
-    // signal the manager to stop updating
-    this->manager_running = false;
+  bool checkrun = this->manager_running;
+  // signal the manager to stop updating
+  this->manager_running = false;
+  // shut down all systems
+  BaseRobot::disconnect();
+  if (checkrun) {
     // wait until the device manager can join back to the parent thread
     this->uctrl_manager->join();
     delete this->uctrl_manager;
     this->uctrl_manager = NULL;
   }
+  // just in case, disconnect again
   BaseRobot::disconnect();
   if (this->read_lock) {
     delete this->read_lock;
@@ -142,7 +139,6 @@ void Tachikoma::send(
     const mat &leg_theta,
     const mat &leg_vel,
     const vec &wheels,
-    const mat &arm_theta,
     bool leg_theta_act,
     bool leg_vel_act) {
   assert(leg_theta.n_rows == NUM_LEGS && leg_theta.n_cols == NUM_JOINTS);
@@ -234,9 +230,6 @@ void Tachikoma::send(
       }
     }
   }
-
-  // after sending all the new components, update current state of robot
-  this->instruction_activate = instr_activate;
 }
 
 vec Tachikoma::recv(
@@ -420,14 +413,12 @@ void Tachikoma::move(
     const mat &leg_theta,
     const mat &leg_vel,
     const vec &wheels,
-    const mat &arm_theta,
     bool leg_theta_act,
     bool leg_vel_act) {
   this->write_lock->lock();
   this->buffered_leg_theta = leg_theta;
   this->buffered_leg_vel = leg_vel;
   this->buffered_wheels = wheels;
-  this->buffered_arm_theta = arm_theta;
   this->buffered_leg_theta_act = leg_theta_act;
   this->buffered_leg_vel_act = leg_vel_act;
   this->write_lock->unlock();
@@ -440,6 +431,61 @@ void Tachikoma::sense(
   leg_sensors = this->buffered_leg_sensors;
   leg_feedback = this->buffered_leg_feedback;
   this->read_lock->unlock();
+}
+
+void Tachikoma::set_motors(
+    const bool vel_en,
+    const bool pos_en,
+    const double top_left_waist_vel,
+    const double top_right_waist_vel,
+    const double bottom_left_waist_vel,
+    const double bottom_right_waist_vel,
+    const double top_left_thigh_vel,
+    const double top_right_thigh_vel,
+    const double bottom_left_thigh_vel,
+    const double bottom_right_thigh_vel,
+    const double top_left_wheel_vel,
+    const double top_right_wheel_vel,
+    const double bottom_left_wheel_vel,
+    const double bottom_right_wheel_vel,
+    const double top_left_waist_pos,
+    const double top_right_waist_pos,
+    const double bottom_left_waist_pos,
+    const double bottom_right_waist_pos,
+    const double top_left_thigh_pos,
+    const double top_right_thigh_pos,
+    const double bottom_left_thigh_pos,
+    const double bottom_right_thigh_pos) {
+  this->write_lock->lock();
+  this->buffered_leg_theta = reshape(mat({
+    top_left_waist_pos,
+    top_left_thigh_pos,
+    top_right_waist_pos,
+    top_right_thigh_pos,
+    bottom_left_waist_pos,
+    bottom_left_thigh_pos,
+    bottom_right_waist_pos,
+    bottom_right_thigh_pos
+  }), 2, 4).t();
+  this->buffered_leg_vel = reshape(mat({
+    top_left_waist_vel,
+    top_left_thigh_vel,
+    top_left_wheel_vel,
+    top_right_waist_vel,
+    top_right_thigh_vel,
+    top_right_wheel_vel,
+    bottom_left_waist_vel,
+    bottom_left_thigh_vel,
+  }), 2, 4).t();
+  this->buffered_wheels = vec({
+    bottom_left_wheel_vel,
+    bottom_right_waist_vel,
+    bottom_right_thigh_vel,
+    bottom_right_wheel_vel
+  });
+  this->buffered_leg_theta_act = pos_en;
+  this->buffered_leg_vel_act = vel_en;
+  this->write_lock->unlock();
 }
 
 void Tachikoma::update_uctrl(void) {
@@ -459,19 +505,18 @@ void Tachikoma::update_send(void) {
     memcpy(&this->prevwritetime, &currenttime, sizeof(struct timeval));
   }
   this->write_lock->lock();
-  arma::mat leg_theta = this->buffered_leg_theta;
-  arma::mat leg_vel = this->buffered_leg_vel;
-  arma::vec wheels = this->buffered_wheels;
-  arma::mat arm_theta = this->buffered_arm_theta;
+  mat leg_theta = this->buffered_leg_theta;
+  mat leg_vel = this->buffered_leg_vel;
+  vec wheels = this->buffered_wheels;
   bool leg_theta_act = this->buffered_leg_theta_act;
   bool leg_vel_act = this->buffered_leg_vel_act;
   this->write_lock->unlock();
-  this->send(leg_theta, leg_vel, wheels, arm_theta, leg_theta_act, leg_vel_act);
+  this->send(leg_theta, leg_vel, wheels, leg_theta_act, leg_vel_act);
 }
 
 void Tachikoma::update_recv(void) {
-  arma::mat leg_sensors;
-  arma::mat leg_feedback;
+  mat leg_sensors;
+  mat leg_feedback;
   this->recv(leg_sensors, leg_feedback);
   this->read_lock->lock();
   this->buffered_leg_sensors = leg_sensors;
