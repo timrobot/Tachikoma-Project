@@ -18,8 +18,8 @@ class Arm : public BaseRobot {
     void send(
         const arma::mat &arm_theta,
         const arma::mat &arm_vel,
-        bool arm_theta_en = false,
-        bool arm_vel_en = true);
+        bool arm_theta_act = false,
+        bool arm_vel_act = true);
     arma::vec recv();
     void reset();
 
@@ -41,9 +41,11 @@ class Arm : public BaseRobot {
     void move(
         const arma::mat &arm_theta,
         const arma::mat &arm_vel,
-        bool arm_theta_en = false,
-        bool arm_vel_en = true);
+        bool arm_theta_act = false,
+        bool arm_vel_act = true);
     arma::vec sense();
+
+    arma::vec fk_solve(const arma::vec &enc, int legid);
 
   private:
     std::thread *devmgr;
@@ -51,7 +53,7 @@ class Arm : public BaseRobot {
     std::mutex *wlock;
     bool manager_running;
 
-    void update_task();
+    void update_uctrl();
     void update_send();
     void update_recv();
 

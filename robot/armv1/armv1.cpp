@@ -48,7 +48,7 @@ Arm::Arm() : BaseRobot(ARMV1) {
 
 Arm::~Arm() {
   if (this->connected()) {
-    this->send(zeros<mat>(1, DOF), zeros<mat>(1, DOF));
+    this->send(zeros<mat>(1, DOF), zeros<mat>(1, DOF), false, false);
     this->reset();
     this->disconnect();
   }
@@ -65,7 +65,7 @@ bool Arm::connect() {
       this->rlock = new mutex;
       this->wlock = new mutex;
       this->manager_running = true;
-      this->devmgr = new thread(&Arm::update_task, this);
+      this->devmgr = new thread(&Arm::update_uctrl, this);
     }
     if (this->connected()) {
       printf("[ARM] Connected\n");
@@ -110,8 +110,8 @@ void Arm::reset() {
 void Arm::send(
     const mat &arm_theta,
     const mat &arm_vel,
-    bool arm_theta_en,
-    bool arm_vel_en) {
+    bool arm_theta_act,
+    bool arm_vel_act) {
   assert(arm_theta.n_rows == 1 && arm_theta.n_cols == DOF);
   assert(arm_vel.n_rows == 1 && arm_vel.n_cols == DOF);
 
@@ -128,7 +128,7 @@ void Arm::send(
           this->arm_minv(i), this->arm_maxv(i),
           this->arm_rev(i), arm[i]);
     } else {
-      arm_theta_en = false;
+      arm_theta_act = false;
     }
     omega[i] = limitf(arm_vel(i), -1.0, 1.0);
   }
@@ -141,8 +141,9 @@ void Arm::send(
     if (this->ids[i] > 0 && this->ids[i] <= 1) {
       switch ((devid = this->ids[i])) {
 
-        // the arm device is actually 3 joints: base, pivot1, and pivot2
-        case ARM:
+        // the arm device is actually 3 joints per
+        // 
+        case UPPER_ARM:
           sprintf(msg, "[%d %d %d %d %d %d %d]\n",
               instr_activate,
               (int)(arm[SH_YAW]),
@@ -154,8 +155,21 @@ void Arm::send(
           serial_write(this->connections[i], msg);
           break;
 
+        case LOWER_ARM:
+          sprintf(msg, "[%d %d %d %d %d %d %d]\n",
+              instr_activate,
+              (int)(arm[WR_PITCH]),
+              (int)(arm[WR_ROLL]),
+              (int)(arm[HA_OPEN]),
+              (int)(omega[WR_PITCH]),
+              (int)(omega[WR_ROLL]),
+              (int)(omega[HA_OPEN]));
+          serial_write(this->connections[i], msg);
+          break;
+
         default:
           break;
+
       }
     }
   }
@@ -164,15 +178,15 @@ void Arm::send(
 vec Arm::recv() {
   char *msg;
   int devid;
+  int sensor[6];
 
   // read from device
   for (size_t i = 0; i < this->connections.size(); i++) {
     if (this->ids[i] > 0 && this->ids[i] <= 1) {
       switch ((devid = this->ids[i])) {
 
-        case ARM:
+        case UPPER_ARM:
           if ((msg = serial_read(this->connections[i]))) {
-            int sensor[6];
             sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
                 &sensor[0],
                 &sensor[1],
@@ -181,6 +195,20 @@ vec Arm::recv() {
             this->arm_read(SH_YAW)   = sensor[0];
             this->arm_read(SH_PITCH) = sensor[1];
             this->arm_read(EL_PITCH) = sensor[2];
+          }
+          break;
+
+        case LOWER_ARM:
+          if ((msg = serial_read(this->connections[i]))) {
+            int sensor[6];
+            sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
+                &sensor[0],
+                &sensor[1],
+                &sensor[2],
+                &sensor[3]);
+            this->arm_read(WR_PITCH) = sensor[0];
+            this->arm_read(WR_ROLL)  = sensor[1];
+            this->arm_read(HA_OPEN)  = sensor[2];
           }
           break;
 
@@ -232,7 +260,9 @@ void Arm::set_calibration_params(json cp) {
   this->calibration_loaded = true;
 }
 
-void Arm::update_task() {
+/** THREADED STUFF **/
+
+void Arm::update_uctrl() {
   while (this->manager_running) {
     this->update_send();
     this->update_recv();
@@ -267,13 +297,13 @@ void Arm::update_recv() {
 void Arm::move(
     const mat &arm_theta,
     const mat &arm_vel,
-    bool arm_theta_en,
-    bool arm_vel_en) {
+    bool arm_theta_act,
+    bool arm_vel_act) {
   this->wlock->lock();
   this->buffered_arm_theta = arm_theta;
   this->buffered_arm_vel = arm_vel;
-  this->buffered_arm_theta_en = arm_theta_en;
-  this->buffered_arm_vel_en = arm_vel_en;
+  this->buffered_arm_theta_en = arm_theta_act;
+  this->buffered_arm_vel_en = arm_vel_act;
   this->wlock->unlock();
 }
 
@@ -284,18 +314,20 @@ vec Arm::sense() {
   return arm_sensors;
 }
 
-mat Rotate(double xy, double yz, double zx) {
-  mat X = reshape(map({
+/** KINEMATICS STUFF **/
+
+mat genRotateMat(double xy, double yz, double zx) {
+  mat X = reshape(mat({
         cos(xy), -sin(xy), 0,
         sin(xy), cos(xy), 0,
         0, 0, 1
         }), 3, 3).t();
-  mat Y = reshape(map({
+  mat Y = reshape(mat({
         1, 0, 0,
         0, cos(yz), -sin(yz),
         0, sin(yz), cos(yz)
         }), 3, 3).t();
-  mat Z = reshape(map({
+  mat Z = reshape(mat({
         cos(zx), 0, sin(zx),
         0, 1, 0,
         -sin(zx), 0, cos(zx)
@@ -304,24 +336,29 @@ mat Rotate(double xy, double yz, double zx) {
 }
 
 vec Arm::fk_solve(const vec &enc, int legid) {
-  double cosv;
-  double sinv;
-
   // solve arm (using D-H notation)
+  vec pos({ 0, 0, 5.0 }); // inches
+  // get the radians
+  vec rad(DOF);
+  for (int i = 0; i < DOF; i++) {
+    rad(i) = enc_transform(this->arm_mint(i), this->arm_maxt(i), -M_PI_4, M_PI_4, 0, enc(i));
+  }
+  // get the translations
+  mat trans = reshape(mat({ // inches
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      4.0, 4.0, 4.0, 4.0, 4.0, 4.0
+    }), 6, 3).t();
 
-  vec pos({ 1.0, 0, 0 });
-
-  double base   = enc(0);
-  double pivot1 = enc(1);
-  double pivot2 = enc(2);
-
-  mat P0 = Rotate(base);
-  mat P1 = Rotate(pivot1);
-  mat P2 = Rotate(pivot2);
-
-  pos = P2 * pos + vec({ 1.0, 0, 0 });
-  pos = P1 * pos + vec({ 0.5, 0, 0 });
-  pos = P0 * pos + vec({ 0.5, 0, 0 });
+  // get the position
+  for (int i = DOF - 1; i >= 0; i--) {
+    mat R = reshape(mat({
+      cos(rad(i)), -sin(rad(i)), 0,
+      sin(rad(i)), cos(rad(i)), 0,
+      0, 0, 1 }), 3, 3).t();
+    vec t = trans.col(i);
+    pos = R * pos + t;
+  }
 
   return pos;
 }

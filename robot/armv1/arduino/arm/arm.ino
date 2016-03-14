@@ -21,6 +21,8 @@ Servo base_turn[2]; // only 2, since each wire will go to 2 motors
 const int turn = 0;
 const int pivot1 = 1;
 const int pivot2 = 2;
+
+// PID constants
 const double Kp = 1.2;
 const double Ki = 0.8;
 //const double Kd = 0.4; // for now not used
@@ -151,7 +153,7 @@ void loop() {
     }
   }
 
-  // EMERGENCY STOP: MASTER COMM LOST
+  // EMERGENCY STOP: MASTER COMM LOST (for testing turn this off)
   if (millis() - timeout > 500) {
     // after .5 seconds, stop the robot
     setmotors(0, 0);
@@ -200,10 +202,10 @@ void loop() {
   if (millis() - msecs > 100) {
     sprintf(wbuf, "[%d %d %d %d %d]\n",
       DEV_ID,
-      analogRead(A0),
-      analogRead(A1),
-      analogRead(A2),
-      analogRead(A3));
+      analogRead(POTPIN1),
+      analogRead(POTPIN2),
+      analogRead(POTPIN3),
+      analogRead(CURSENSE));
     Serial.print(wbuf);
     msecs = millis();
   }

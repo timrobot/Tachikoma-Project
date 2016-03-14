@@ -11,6 +11,7 @@
 #define HA_OPEN   5
 
 // Device Ids //
-#define ARM 1
+#define UPPER_ARM 1
+#define LOWER_ARM 2
 
 #endif
