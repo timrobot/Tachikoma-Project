@@ -134,10 +134,7 @@ int xboxctrl_update(xboxctrl_t *ctrl) {
     }
   } else if (event.type & JS_EVENT_AXIS) {
     float value;
-    value = (float)event.value;
-    if (value > 1.0 || value < -1.0) {
-      value /= (float)MAX_16BIT;
-    }
+    value = (float)event.value / (float)MAX_16BIT;
     if (event.type & JS_EVENT_INIT) {
       ctrl->axes++;
     }
