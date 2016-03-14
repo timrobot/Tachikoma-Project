@@ -10,7 +10,7 @@
 
 class pfilter {
   public:
-    pfilter(int nparticles, sim_map *map, std::vector<sim_landmark> &landmarks, int x, int y, int t);
+    pfilter(int nparticles, sim_map *map, std::vector<sim_landmark> &landmarks, double x, double y, double t);
     ~pfilter(void);
     void move(double vx, double vy, double w);
     void observe(arma::mat observations);

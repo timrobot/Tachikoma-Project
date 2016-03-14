@@ -1,6 +1,8 @@
-Author: Ming Tai Ha
+Authors:
+Ming Tai Ha
 (Except he was too lazy to put his own name in here so I put it in here instead)
--Timothy Yong
+Timothy Yong
+Jonathan Risinger
 
 NOTE: This is a minimalistic A* from a bird's eye view.
 Only to do local map resolution
@@ -35,3 +37,6 @@ sim.cpp         This is the main program; it runs the simulation and calls the r
 sim_window.cpp  This is the window to display the screen to the user
 state.cpp       This is a search state of the algorithm
 svec.cpp        This is a vector class that can store a series of states
+
+TODO:
+Need to implement D* as dictated by the paper (look at search history)

@@ -79,8 +79,8 @@ int main() {
   // load the robot
   sim_robot robot(&map);
   robot.set_size(8);
-  robot.set_pose(70, 48, 0);
-  robot.set_noise(0.3, 0.02);
+  robot.set_pose(70, 48, M_PI_2);
+  robot.set_noise(0.2, 0.05);
 
   // load the lidar
   sim_lidar lidar(&robot);
@@ -91,9 +91,9 @@ int main() {
 /////////////////////////
 
   // create the particle filter
-  pfilter pf(1000, &map, landmarks, 70, 48, 0);
+  pfilter pf(1000, &map, landmarks, 70, 48, M_PI_2);
   pf.set_size(12);
-  pf.set_noise(8.0, 2.0);
+  pf.set_noise(0.2, 0.05);
   
   // start up the window
   SDL_Surface *screen = sim_window::init(400, 400);
@@ -137,10 +137,9 @@ int main() {
     robot.move((strafe_right - strafe_left) * 4, (forward - backward) * 4, (turn_left - turn_right) * .1);
     pf.move((strafe_right - strafe_left) * 4, (forward - backward) * 4, (turn_left - turn_right) * .1);
     mat sensor_values = lidar.sense();
-    mat tag_landmarks;
-    sim_tag_extract(tag_landmarks, sensor_values, landmarks, robot, map);
-    pf.observe(tag_landmarks);
-    pf.observe(tag_landmarks);
+    //mat tag_landmarks;
+    //sim_tag_extract(tag_landmarks, sensor_values, landmarks, robot, map);
+    //pf.observe(tag_landmarks);
 
     // predict the position
     vec mu;
@@ -153,7 +152,7 @@ int main() {
     for (sim_landmark &lm : landmarks) {
       lm.blit(frame);
     }
-    lidar.blit(frame);
+    //lidar.blit(frame);
     pf.blit(frame);
     //robot.blit(frame);
     newframe = partial_frame(frame, (int)round(robot.x), (int)round(robot.y), screen->w, screen->h);

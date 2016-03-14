@@ -4,6 +4,7 @@ About this package
 TODO:
 <ol>
   <li>get this running on the GPU</li>
+  <li>test on the real world</li>
 </ol>
 
 DEPS:

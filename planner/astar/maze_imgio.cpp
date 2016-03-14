@@ -23,6 +23,7 @@ imat load_maze(string &maze_name) {
   cv::Mat img = cv::imread(maze_name);
   icube image = cvt_opencv2arma(img);
   imat maze = image.slice(0) + image.slice(1) + image.slice(2);
+  maze = flipud(maze);
   return ones<imat>(maze.n_rows, maze.n_cols) % (maze < 128);
 }
 

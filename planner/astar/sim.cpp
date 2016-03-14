@@ -8,7 +8,6 @@
 #include "draw.h"
 #include "maze_gen.h"
 #include "maze_imgio.h"
-#include "robot.h"
 
 #define t_delay 25
 using namespace std;
@@ -25,7 +24,7 @@ static bool mouseon;
 /// OPTIONS ///
 static int RANDOM = 1;
 static int F = F_FORWARD;
-static int H = H_REPEATED;
+static int H = H_MANHATTAN;
 static int G = G_MAX;
 static string fname;
 
@@ -56,7 +55,6 @@ ivec getClickedPoint(void) {
 void run_map(imat map) {
   // select two points, for now the corners
   icube pathmap;
-  vector<ivec> path;
   drawGrid(pathmap, map);
   blitRGB(screen, pathmap);
   sim_window::update();
@@ -80,54 +78,25 @@ void run_map(imat map) {
       isSame = 0;
     }
   }
-  Robot robot(start);
-  robot.search(map, start, goal, F, H, G);
-  int i_blip = 0;
-  while (!robot.complete() && !robot.stuck()) {
-    // search the space to find a path
-    while (!robot.searchalgo->complete() && !robot.searchalgo->impossible()) {
-      SDL_Event *e;
-      while ((e = sim_window::get_event())) {
-        if (e->type == SDL_QUIT) {
-          sim_window::destroy();
-          exit(1);
-        }
-      }
-      robot.run();
-      robot.searchalgo->decision_space(path);
-      if (i_blip % 100 == 0) {
-        drawGrid(pathmap, map);
-        drawPath(pathmap, path);
-        drawBot(pathmap, robot.x, robot.y);
-        blitRGB(screen, pathmap);
-        sim_window::update();
-        SDL_Delay(t_delay);
-      }
-      i_blip++;
-    }
-    if (robot.searchalgo->impossible()) {
-      printf("Impossible to find a path!\n");
-      return;
-    }
-    // draw the final decision
-    robot.searchalgo->final_decision(path);
-    drawGrid(pathmap, map);
-    drawPath(pathmap, path);
-    drawBot(pathmap, robot.x, robot.y);
-    blitRGB(screen, pathmap);
-    sim_window::update();
-    SDL_Delay(t_delay * 5);
 
-    // move the robot to the new position
-    if (path.size() >= 2) {
-      robot.move(robot.getMotion());
-    }
+  // compute the path
+  AStar astar(map, goal);
+  vector<ivec> path;
+  astar.compute(start, path);
+  if (astar.impossible()) {
+    printf("It is impossible!\n");
+    return;
   }
-  drawGrid(pathmap, map);
-  drawBot(pathmap, robot.x, robot.y);
+  for (ivec &v : path) {
+    cout << v << endl;
+  }
+
+  // draw it out
+  //drawGrid(pathmap, map);
+  drawPath(pathmap, path);
+  drawBot(pathmap, start(0), start(1));
   blitRGB(screen, pathmap);
   sim_window::update();
-  SDL_Delay(t_delay * 5);
 }
 
 int main(int argc, char *argv[]) {
@@ -139,7 +108,7 @@ int main(int argc, char *argv[]) {
   int block_prob;
 
   if (argc < 3) {
-    printf("usage: %s [random=<0..100>|file=<filename>] [forward_max|forward_min|backward|adaptive]\n", argv[0]);
+    printf("usage: %s [random=<0..100>|file=<filename>] [forward_max|forward_min|backward|euclidean]\n", argv[0]);
     return 1;
   } else {
     string arg1 = argv[1];
@@ -167,19 +136,19 @@ int main(int argc, char *argv[]) {
     }
 
     if (arg2.compare("forward_max") == 0) {
-      H = H_REPEATED;
+      H = H_MANHATTAN;
       F = F_FORWARD;
       G = G_MAX;
     } else if (arg2.compare("forward_min") == 0) {
-      H = H_REPEATED;
+      H = H_MANHATTAN;
       F = F_FORWARD;
       G = G_MIN;
     } else if (arg2.compare("backward") == 0) {
-      H = H_REPEATED;
+      H = H_MANHATTAN;
       F = F_BACKWARD;
       G = G_MAX;
-    } else if (arg2.compare("adaptive") == 0) {
-      H = H_ADAPTIVE;
+    } else if (arg2.compare("euclidean") == 0) {
+      H = H_EUCLIDEAN;
       F = F_FORWARD;
       G = G_MAX;
     } else {
@@ -191,7 +160,7 @@ int main(int argc, char *argv[]) {
   setBlockSize(5);
   screen = sim_window::init(getGridWidth(maze.n_cols), getGridHeight(maze.n_rows));
   run_map(maze);
-  sleep(1);
+  sleep(3);
   sim_window::destroy();
 
   return 0;

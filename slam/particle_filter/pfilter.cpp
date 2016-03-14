@@ -7,28 +7,47 @@
 using namespace arma;
 using namespace std;
 
+static double erfinv(double p) {
+  // approximate maclaurin series (refer to http://mathworld.wolfram.com/InverseErf.html)
+  double sqrt_pi = sqrt(M_PI);
+  vec a = {
+    0.88623,
+    0.23201,
+    0.12756,
+    0.086552
+  };
+  vec x(a.n_elem);
+  for (int i = 0; i < x.n_elem; i++) {
+    x(i) = pow(p, 2 * i + 1);
+  }
+  return dot(a,x);
+}
+
+static double gaussianNoise(double sigma) {
+  double p = (double)rand() / ((double)RAND_MAX / 2) - 1;
+  return erfinv(p) * sigma;
+}
+
 /** This is the constructor for the particle filter (think of it as your init)
  *  @param nparticles the number of particles to create
  *  @param map the pointer to the map (just store it)
  *  @param landmarks a list of landmarks, where each landmark is described in sim_landmark.h
  */
-pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks, int x, int y, int t) {
+pfilter::pfilter(int nparticles, sim_map *map, vector<sim_landmark> &landmarks,
+  double x, double y, double t) {
+  double x_, y_, t_;
   // STEP 1: store the map and landmark variables
   this->map = map;
   this->landmarks = landmarks;
 
   // STEP 2: create a bunch of particles, place them into this->particles
-  default_random_engine generator;
-  normal_distribution<double> xd(x, 12.0);
-  normal_distribution<double> yd(y, 12.0);
-  normal_distribution<double> td(t, 5.0);
   vector<sim_robot> new_particles;
   for (int i = 0; i < nparticles; i++) {
-    x = round(xd(generator));
-    y = round(yd(generator));
-    t = ((int)round(td(generator)) % 360) * M_PI / 180;
+    x_ = x + gaussianNoise(1.0);
+    y_ = y + gaussianNoise(1.0);
+    t_ = t + gaussianNoise(0.002);
     sim_robot newbot; 
-    newbot.set_pose(x,y,t);
+    newbot.set_pose(x_, y_, t_);
     new_particles.push_back(newbot);
   }
   particles.clear();
@@ -72,7 +91,7 @@ void pfilter::set_size(double r) {
  */
 void pfilter::move(double vx, double vy, double w) {
   for (int i = 0; i < particles.size(); i++){
-    particles[i].move(vx,vy,w);
+    particles[i].move(vx, vy, w);
     // circular world!!!!
     sim_robot &bot = particles[i];
     if (bot.x < 0) {
@@ -110,10 +129,18 @@ void pfilter::weigh(mat &observations) {
   }
   for (int i = 0; i < particles.size(); i++){
     for(int j = 0; j < landmarks.size(); j++){
+      int x = (int)round(particles[i].x);
+      int y = (int)round(particles[i].y);
+      if (x < 0 || x >= (int)map->n_cols ||
+          y < 0 || y >= (int)map->n_rows ||
+          map->map(y, x) > 0.5) {
+        this->health[i] = 0;
+        continue;
+      }
       radius[j] = sqrt(pow(landmarks[j].x-particles[i].x, 2) + pow(landmarks[j].y-particles[i].y, 2)); // radius of the robot
       theta[j] = atan2(landmarks[j].y - particles[i].y, landmarks[j].x - particles[i].x) - particles[i].t; // theta of the robot
-      this->health[i] *= gauss(R[j]-radius[j],vs);
-      this->health[i] *= gauss(T[j]-theta[j],ws);
+      this->health[i] *= gauss(R[j] - radius[j], vs);
+      this->health[i] *= gauss(T[j] - theta[j], ws);
     }
   }
   resample();
@@ -126,7 +153,7 @@ void pfilter::resample(void) {
   int N = particles.size();
   vector<sim_robot> p2;
   int index = (int)rand() % N;
-  double beta=0;
+  double beta = 0;
   double mw = (max(health));
   for (int i = 0; i < N; i++){
     beta += ((double)rand() / (double)RAND_MAX) * 2 * mw;

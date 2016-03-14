@@ -86,16 +86,18 @@ static double gaussianNoise(double sigma) {
 }
 
 void sim_robot::move(double vx, double vy, double w) {
-  this->t += w + gaussianNoise(this->ws);
+  this->t += w * (1 + gaussianNoise(this->ws));
+//      (vx * gaussianNoise(this->vs / 100)) +
+//      (vy * gaussianNoise(this->vs / 100)); // arbitrary constant chosen
   while (this->t < -2 * M_PI) {
     this->t += 2 * M_PI;
   }
   while (this->t > 2 * M_PI) {
     this->t -= 2 * M_PI;
   }
-  double x = this->x + (vy + gaussianNoise(this->vs)) * cos(this->t) +
+  double x = this->x + (vy * (1 + gaussianNoise(this->vs))) * cos(this->t) +
     (vx + gaussianNoise(this->vs)) * sin(this->t);
-  double y = this->y + (vy + gaussianNoise(this->vs)) * sin(this->t) -
+  double y = this->y + (vy * (1 + gaussianNoise(this->vs))) * sin(this->t) -
     (vx + gaussianNoise(this->vs)) * cos(this->t);
   if (!this->collided(x, y)) {
     this->x = x;

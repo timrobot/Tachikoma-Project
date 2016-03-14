@@ -1,10 +1,13 @@
 //
-//	[Author] = Ming Tai Ha
+//	[Authors] = Ming Tai Ha
+//              Jon Risinger
+//              Timothy Yong
 //
 
 #include "astar.h"
-#include "searchtree.h"
 #include "maze_gen.h"
+#include "heap.h"
+#include "heap.cpp"
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -18,17 +21,16 @@ using namespace std;
  *  including any data structures which you are to use in the
  *  computation of the next state
  *  @param map This is the map which you are given
- *  @param start This is the starting position of the robot
  *  @param goal This is the goal of the robot
  */
-AStar::AStar(imat map, ivec &start, ivec &goal, int forward_mode, int heuristic_mode, int tie_mode) :
-    fin(NULL),
+AStar::AStar(imat map, ivec &goal, AStarProp prop) :
     isComplete(false),
-    start(start),
+    isImpossible(false),
     goal(goal),
-    map(map),
-    prop(prop),
-    tree(start(0), start(1), goal(0), goal(1), map) {
+    prop(prop) {
+  this->map = map.t();
+  assert(0 <= goal(0) && goal(0) < (int)this->map.n_rows &&
+         0 <= goal(1) && goal(1) < (int)this->map.n_cols);
 }
 
 AStar::~AStar(void) {
@@ -39,102 +41,79 @@ AStar::~AStar(void) {
  *  computing the cost and placing the state that was traversed
  *  into the search space
  */
-void AStar::compute(void) {
-  assert(!pqueue.empty());
-  state *choice;
-  svec breaktie;
+void AStar::compute(ivec &start, vector<ivec> &path) {
+  this->isComplete = false;
+  this->isImpossible = false;
 
-  // STEP 1: Grab a list of minimum positions from the priority queue
-  if (isComplete) { // already done, don't do any more
-    return;
-  }
-  state * s = tree.pqueue.remove();
-  breaktie.push_back(s);
-  while (!tree.pqueue.isEmpty()) {
-    s = tree.pqueue.remove();
-    if ((*s) != (*breaktie[0])) {
-      tree.pqueue.insert(s);
-      break;
+  heap<ivec> opened;
+  opened.push(start, sum(abs(start - goal)));
+  // create a matrix of parents that have been closed
+  imat closed(this->map.n_rows, this->map.n_cols, fill::zeros);
+  imat stategrid(this->map.n_rows, this->map.n_cols, fill::zeros);
+  imat costs(this->map.n_rows, this->map.n_cols, fill::zeros);
+
+  // after pushing the initial state, start trying to get the next state
+  while (!opened.empty()) {
+    // grab a state
+    ivec next_state = opened.pop();
+    int x = next_state(0);
+    int y = next_state(1);
+
+    closed(x, y) = true;
+    int currcost = costs(x, y);
+    // if this state is the goal state, then return the path
+    if (x == this->goal(0) && y == this->goal(1)) {
+      path.clear();
+      while (x != start(0) || y != start(1)) {
+        path.push_back(next_state);
+        imat actions = reshape(imat({
+          0, 0, 1, -1,
+          -1, 1, 0, 0
+        }), 4, 2).t();
+        ivec action = actions.col(stategrid(x, y) - 1);
+        next_state += action;
+        x = next_state(0);
+        y = next_state(1);
+      }
+      path.push_back(next_state);
+      reverse(path.begin(), path.end());
+      this->isComplete = true;
+      return;
     }
-    breaktie.push_back(s);
-  }
-
-  // STEP 2: Use g_value tie breaking to choose a position from the queue,
-  //         and place the rest back into the queue
-  struct {
-    bool operator()(state *a, state *b) {
-      return a->g_value < b->g_value; // get the min value
-    }
-  } gMin;
-  struct {
-    bool operator()(state *a, state *b) {
-      return a->g_value > b->g_value; // get the max value
-    }
-  } gMax;
-  // resolve the tie
-  if (this->tie_mode == G_MIN) {
-    sort(breaktie.begin(), breaktie.end(), gMin);
-  } else {
-    sort(breaktie.begin(), breaktie.end(), gMax);
-  }
-  choice = breaktie[0];
-  for (int i = 1; i < breaktie.size(); i++) {
-    tree.pqueue.insert(breaktie[i]);
-  }
-  breaktie.clear(); // clear the vector for later usage
-
-  // STEP 3: Detect if the current node is the goal node;
-  //         if it is, RETURN (do not do anything)
-
-  if (choice->x == tree.goal_x && choice->y == tree.goal_y) {
-    tree.addToTree(choice);
-    isComplete = 1;
-    fin = choice;
-  } else {
-    // STEP 4: Compute the cost of the 4-connected neighborhood and
-    //         add them to the priority queue if they have not been
-    //         added before
-    tree.addToTree(choice);
-    tree.addChildren(choice);
-    isComplete = 0;
-  }	
-}
-
-/** Grab the entire tree of nodes from the search space
- *  @param path a vector of (x, y) tuples
- */
-void AStar::decision_space(vector<ivec> &path) {
-  path.clear();
-  for (int i = 0; i < map.n_rows; i++) {
-    for (int j = 0; j < map.n_cols; j++) {
-      if (tree.closed(i, j) == 1) {
-        path.push_back({j, i});
+    // otherwise try to find new neighbors and add them in
+    imat neighbor4 = reshape(imat({
+      0, 0, -1, 1,
+      1, -1, 0, 0
+    }), 4, 2).t();
+    for (int j = 0; j < (int)neighbor4.n_cols; j++) {
+      int x_ = x + neighbor4(0, j);
+      int y_ = y + neighbor4(1, j);
+      if (x_ < 0 || x_ >= (int)stategrid.n_cols ||
+          y_ < 0 || y_ >= (int)stategrid.n_rows ||
+          this->map(x_, y_) > 0.5) {
+        continue;
+      }
+      if (!stategrid(x_, y_) && !closed(x_, y_)) {
+        stategrid(x_, y_) = j + 1;
+        costs(x_, y_) = currcost + 1; // assume 1 cost
+        opened.push(ivec({ x_, y_ }), costs(x_, y_) +
+          sum(abs(ivec({ x_, y_ }) - this->goal))); // manhattan distance
       }
     }
   }
-}
-
-/** Grab the final path of nodes from the search space
- *  to the goal
- *  @param path a vector of (x, y) tuples
- */
-void AStar::final_decision(vector<ivec> &path) {
-  path.clear();
-  for (state *step = fin; step != NULL; step = step->parent) {
-    path.push_back({ step->x, step->y });
-  }	
+  this->isImpossible = true;
 }
 
 /** Return whether or not the goal is impossible to reach
  *  @return true if it is impossible, false otherwise
  */
 bool AStar::impossible(void) {
-  return !isComplete && tree.pqueue.isEmpty();
+  return this->isImpossible;
 }
 
 /** Return whether or not the goal has been reached
  *  @return true if goal is reached, false otherwise
  */
 bool AStar::complete(void) {
-  return isComplete;
+  return this->isComplete;
 }
