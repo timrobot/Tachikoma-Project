@@ -11,6 +11,8 @@ class DStar {
     void compute(arma::ivec &start, std::vector<arma::ivec> &path);
     bool complete(void);
     bool impossible(void);
+  private:
+    void dijkstras(arma::imat &h);
 };
 
 #endif
