@@ -90,6 +90,22 @@ void run_map(imat map) {
   for (ivec &v : path) {
     cout << v << endl;
   }
+  
+  // compute the interpolation
+  // lookahead requires bounds
+  vector<ivec> traj;
+  for (int i = 2; i < path.size() - 2; i++) {
+    ivec p[5];
+    p[0] = v[i-2];
+    p[1] = v[i-1];
+    p[2] = v[i];
+    p[3] = v[i+1];
+    p[4] = v[i+2];
+    traj.push_back((p[1](1)-p[0](1)/p[1](0)-p[0](0))+
+    (p[2](1)-p[0](1)/p[2](0)-p[0](0))+
+    (p[3](1)-p[0](1)/p[3](0)-p[0](0))+
+    (p[4](1)-p[0](1)/p[4](0)-p[0](0)))/4);
+  }
 
   // draw it out
   //drawGrid(pathmap, map);
