@@ -3,15 +3,15 @@
 
 // General Definitions //
 #define DOF       6
-#define SH_YAW    0
-#define SH_PITCH  1
-#define EL_PITCH  2
-#define WR_PITCH  3
-#define WR_ROLL   4
-#define HA_OPEN   5
+#define JOINT0    0
+#define JOINT1    1
+#define JOINT2    2
+#define JOINT3    3
+#define JOINT4    4
+#define JOINT5    5
 
 // Device Ids //
-#define UPPER_ARM 1
-#define LOWER_ARM 2
+#define UPPER_ARM 1001
+#define LOWER_ARM 1002
 
 #endif

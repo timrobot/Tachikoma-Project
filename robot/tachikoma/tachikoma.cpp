@@ -130,7 +130,6 @@ void Tachikoma::disconnect(void) {
 }
 
 void Tachikoma::reset(void) {
-  this->leg_write.zeros();
   this->leg_read.zeros();
   this->leg_fback.zeros();
 }

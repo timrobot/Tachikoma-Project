@@ -1,32 +1,38 @@
 {
-  "shoulder_yaw": {
-    "min": 300,
-    "max": 740,
-    "reversed": false
+  "joint0": {
+    "raw_min": 300,
+    "raw_max": 740,
+    "theta_min": -1.571,
+    "theta_max": 1.571
   },
-  "shoulder_pitch": {
-    "min": 300,
-    "max": 740,
-    "reversed": false
+  "joint1": {
+    "raw_min": 213,
+    "raw_max": 832,
+    "theta_min": -0.785,
+    "theta_max": 0.785
   },
-  "elbow_pitch": {
-    "min": 310,
-    "max": 1000,
-    "reversed": false
+  "joint2": {
+    "raw_min": 310,
+    "raw_max": 1000,
+    "theta_min": 0.196,
+    "theta_max": 3.142
   },
-  "wrist_pitch": {
-    "min": 100,
-    "max": 894,
-    "reversed": false
+  "joint3": {
+    "raw_min": 100,
+    "raw_max": 894,
+    "theta_min": -1.571,
+    "theta_max": 1.571
   },
-  "wrist_roll": {
-    "min": 100,
-    "max": 930,
-    "reversed": false
+  "joint4": {
+    "raw_min": 100,
+    "raw_max": 930,
+    "theta_min": -1.571,
+    "theta_max": 1.571
   },
-  "hand_open": {
-    "min": 600,
-    "max": 950,
-    "reversed": false
+  "joint5": {
+    "raw_min": 600,
+    "raw_max": 950,
+    "theta_min": 0,
+    "theta_max": 3.142
   }
 }

@@ -8,44 +8,60 @@
 
 class Arm : public BaseRobot {
   public:
-    Arm();
-    ~Arm();
+    Arm(void);
+    ~Arm(void);
 
-    bool connect();
-    bool connected();
-    int numConnected();
-    void disconnect();
+    bool connect(void);
+    bool connected(void);
+    int numConnected(void);
+    void disconnect(void);
     void send(
-        const arma::mat &arm_theta,
-        const arma::mat &arm_vel,
+        const arma::vec &arm_theta,
+        const arma::vec &arm_vel,
         bool arm_theta_act = false,
         bool arm_vel_act = true);
-    arma::vec recv();
-    void reset();
+    arma::vec recv(void);
+    void reset(void);
 
     void set_calibration_params(const std::string &filename);
     void set_calibration_params(nlohmann::json cp);
-    bool calibrated();
+    bool calibrated(void);
 
     /* update on recv */
     arma::vec arm_read;
-    arma::mat arm_pos;
+    arma::vec arm_fback;
+    arma::vec arm_current;
+    arma::vec arm_pos;
     /* parameters */
-    arma::mat arm_mint;
-    arma::mat arm_maxt;
-    arma::mat arm_minv;
-    arma::mat arm_maxv;
-    arma::umat arm_rev;
+    arma::vec arm_mint;
+    arma::vec arm_maxt;
+    arma::vec arm_minv;
+    arma::vec arm_maxv;
+    arma::vec arm_link_length;
 
     /* threaded versions */
     void move(
-        const arma::mat &arm_theta,
-        const arma::mat &arm_vel,
+        const arma::vec &arm_theta,
+        const arma::vec &arm_vel,
         bool arm_theta_act = false,
         bool arm_vel_act = true);
-    arma::vec sense();
+    arma::vec sense(void);
 
-    arma::vec fk_solve(const arma::vec &enc, int legid);
+    void set_pose(
+        double joint0,
+        double joint1,
+        double joint2,
+        double joint3,
+        double joint4,
+        double joint5,
+        bool en = true);
+
+    arma::vec get_end_effector_pos(int linkid = 6); // change to DOF later
+    bool get_position_placement(
+        arma::vec target_pos,
+        arma::vec target_pose,
+        double target_spin,
+        arma::vec &solution_enc);
 
   private:
     std::thread *devmgr;
@@ -53,12 +69,12 @@ class Arm : public BaseRobot {
     std::mutex *wlock;
     bool manager_running;
 
-    void update_uctrl();
+    void update_uctrl(void);
     void update_send();
-    void update_recv();
+    void update_recv(void);
 
-    arma::mat buffered_arm_theta;
-    arma::mat buffered_arm_vel;
+    arma::vec buffered_arm_theta;
+    arma::vec buffered_arm_vel;
     bool buffered_arm_theta_en;
     bool buffered_arm_vel_en;
     arma::vec buffered_arm_sensors;

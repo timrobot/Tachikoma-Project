@@ -19,26 +19,29 @@ using namespace arma;
 using namespace std;
 using json = nlohmann::json;
 
+static mat genRotateMat(double x, double y, double z);
 static double limitf(double value, double minv, double maxv);
-//static double cos_rule_angle(double A, double B, double C);
-static double enc_transform(double mint, double maxt, double minv, double maxv, int reversed, double value);
+static double cos_rule_angle(double A, double B, double C);
+static double map_domain(double value, vec from, vec to);
 static double secdiff(struct timeval &t1, struct timeval &t2);
 
-Arm::Arm() : BaseRobot(ARMV1) {
+Arm::Arm(void) : BaseRobot(ARMV1) {
   this->arm_read = zeros<vec>(DOF);
-  this->arm_pos = zeros<mat>(1, 3);
-  this->arm_mint = { -M_PI_2, -M_PI_2, -M_PI_4, -M_PI_2, -M_PI_2, 0.0 };
-  this->arm_maxt = { M_PI_2, M_PI_2, M_PI_2, M_PI_2, M_PI_2, M_PI_2 };
-  this->arm_minv = zeros<mat>(1, DOF);
-  this->arm_maxv = zeros<mat>(1, DOF);
-  this->arm_rev = zeros<umat>(1, DOF);
+  this->arm_fback = zeros<vec>(DOF);
+  this->arm_current = zeros<vec>(2); // change this if necessary
+  this->arm_pos = zeros<vec>(3);
+  this->arm_mint = zeros<vec>(DOF);
+  this->arm_maxt = zeros<vec>(DOF);
+  this->arm_minv = zeros<vec>(DOF);
+  this->arm_maxv = zeros<vec>(DOF);
+  this->arm_link_length = { 0.2, 5.0, 10.5, 6.5, 4.5, 3.8, 3.75 };
   this->calibration_loaded = false;
   this->devmgr = NULL;
   this->rlock = NULL;
   this->wlock = NULL;
   this->manager_running = false;
-  this->buffered_arm_theta = zeros<mat>(1, DOF);
-  this->buffered_arm_vel = zeros<mat>(1, DOF);
+  this->buffered_arm_theta = zeros<vec>(DOF);
+  this->buffered_arm_vel = zeros<vec>(DOF);
   this->buffered_arm_sensors = zeros<vec>(DOF);
   this->buffered_arm_theta_en = false;
   this->buffered_arm_vel_en = false;
@@ -46,22 +49,22 @@ Arm::Arm() : BaseRobot(ARMV1) {
   gettimeofday(&this->prevwtime, NULL);
 }
 
-Arm::~Arm() {
+Arm::~Arm(void) {
   if (this->connected()) {
-    this->send(zeros<mat>(1, DOF), zeros<mat>(1, DOF), false, false);
+    this->send(zeros<vec>(DOF), zeros<vec>(DOF), false, false);
     this->reset();
     this->disconnect();
   }
 }
 
-bool Arm::connect() {
+bool Arm::connect(void) {
   if (!this->connected()) {
     bool status = BaseRobot::connect();
     if (!this->connected() || !status) {
       this->disconnect();
     } else {
       this->reset();
-      this->send(zeros<mat>(1, DOF), zeros<mat>(1, DOF));
+      this->send(zeros<vec>(DOF), zeros<vec>(DOF));
       this->rlock = new mutex;
       this->wlock = new mutex;
       this->manager_running = true;
@@ -76,15 +79,15 @@ bool Arm::connect() {
   return this->connected();
 }
 
-bool Arm::connected() {
+bool Arm::connected(void) {
   return this->connections.size() > 0;
 }
 
-int Arm::numConnected() {
+int Arm::numConnected(void) {
   return this->connections.size();
 }
 
-void Arm::disconnect() {
+void Arm::disconnect(void) {
   if (this->manager_running) {
     this->manager_running = false;
     this->devmgr->join();
@@ -103,17 +106,18 @@ void Arm::disconnect() {
   printf("[ARM] Disconnected\n");
 }
 
-void Arm::reset() {
+void Arm::reset(void) {
   this->arm_read.zeros();
+  this->arm_fback.zeros();
 }
 
 void Arm::send(
-    const mat &arm_theta,
-    const mat &arm_vel,
+    const vec &arm_theta,
+    const vec &arm_vel,
     bool arm_theta_act,
     bool arm_vel_act) {
-  assert(arm_theta.n_rows == 1 && arm_theta.n_cols == DOF);
-  assert(arm_vel.n_rows == 1 && arm_vel.n_cols == DOF);
+  assert(arm_theta.n_elem == DOF);
+  assert(arm_vel.n_elem == DOF);
 
   int devid;
   double arm[DOF];
@@ -123,10 +127,9 @@ void Arm::send(
   for (uword i = 0; i < DOF; i++) {
     arm[i] = limitf(arm_theta(i), this->arm_mint(i), this->arm_maxt(i));
     if (this->calibrated()) {
-      arm[i] = enc_transform(
-          this->arm_mint(i), this->arm_maxt(i),
-          this->arm_minv(i), this->arm_maxv(i),
-          this->arm_rev(i), arm[i]);
+      arm[i] = map_domain(arm[i],
+          vec({ this->arm_mint(i), this->arm_maxt(i) }),
+          vec({ this->arm_minv(i), this->arm_maxv(i) }));
     } else {
       arm_theta_act = false;
     }
@@ -141,29 +144,27 @@ void Arm::send(
     if (this->ids[i] > 0 && this->ids[i] <= 1) {
       switch ((devid = this->ids[i])) {
 
-        // the arm device is actually 3 joints per
-        // 
         case UPPER_ARM:
-          sprintf(msg, "[%d %d %d %d %d %d %d]\n",
+          sprintf(msg, "[%d %d %d %d %d %d %d %d %d]\n",
               instr_activate,
-              (int)(arm[SH_YAW]),
-              (int)(arm[SH_PITCH]),
-              (int)(arm[EL_PITCH]),
-              (int)(omega[SH_YAW]),
-              (int)(omega[SH_PITCH]),
-              (int)(omega[EL_PITCH]));
+              (int)(arm[JOINT2]),
+              (int)(arm[JOINT3]),
+              (int)(arm[JOINT4]),
+              (int)(arm[JOINT5]),
+              (int)(omega[JOINT2]),
+              (int)(omega[JOINT3]),
+              (int)(omega[JOINT4]),
+              (int)(omega[JOINT5]));
           serial_write(this->connections[i], msg);
           break;
 
         case LOWER_ARM:
-          sprintf(msg, "[%d %d %d %d %d %d %d]\n",
+          sprintf(msg, "[%d %d %d %d %d]\n",
               instr_activate,
-              (int)(arm[WR_PITCH]),
-              (int)(arm[WR_ROLL]),
-              (int)(arm[HA_OPEN]),
-              (int)(omega[WR_PITCH]),
-              (int)(omega[WR_ROLL]),
-              (int)(omega[HA_OPEN]));
+              (int)(arm[JOINT0]),
+              (int)(arm[JOINT1]),
+              (int)(omega[JOINT0]),
+              (int)(omega[JOINT1]));
           serial_write(this->connections[i], msg);
           break;
 
@@ -175,10 +176,10 @@ void Arm::send(
   }
 }
 
-vec Arm::recv() {
+vec Arm::recv(void) {
   char *msg;
   int devid;
-  int sensor[6];
+  int storage[8];
 
   // read from device
   for (size_t i = 0; i < this->connections.size(); i++) {
@@ -187,28 +188,41 @@ vec Arm::recv() {
 
         case UPPER_ARM:
           if ((msg = serial_read(this->connections[i]))) {
-            sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
-                &sensor[0],
-                &sensor[1],
-                &sensor[2],
-                &sensor[3]);
-            this->arm_read(SH_YAW)   = sensor[0];
-            this->arm_read(SH_PITCH) = sensor[1];
-            this->arm_read(EL_PITCH) = sensor[2];
+            sscanf(msg, "[%d %d %d %d %d %d %d %d %d]\n", &this->ids[i],
+                &storage[0],
+                &storage[1],
+                &storage[2],
+                &storage[3],
+                &storage[4],
+                &storage[5],
+                &storage[6],
+                &storage[7]);
+            this->arm_read(JOINT2) = storage[0];
+            this->arm_read(JOINT3) = storage[1];
+            this->arm_read(JOINT4) = storage[2];
+            this->arm_read(JOINT5) = storage[3];
+            this->arm_fback(JOINT2) = storage[4];
+            this->arm_fback(JOINT3) = storage[5];
+            this->arm_fback(JOINT4) = storage[6];
+            this->arm_fback(JOINT5) = storage[7];
           }
           break;
 
         case LOWER_ARM:
           if ((msg = serial_read(this->connections[i]))) {
-            int sensor[6];
-            sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
-                &sensor[0],
-                &sensor[1],
-                &sensor[2],
-                &sensor[3]);
-            this->arm_read(WR_PITCH) = sensor[0];
-            this->arm_read(WR_ROLL)  = sensor[1];
-            this->arm_read(HA_OPEN)  = sensor[2];
+            sscanf(msg, "[%d %d %d %d %d %d %d]\n", &this->ids[i],
+                &storage[0],
+                &storage[1],
+                &storage[2],
+                &storage[3],
+                &storage[4],
+                &storage[5]);
+            this->arm_read(JOINT0) = storage[0];
+            this->arm_read(JOINT1) = storage[1];
+            this->arm_current(0) = storage[2];
+            this->arm_current(1) = storage[3];
+            this->arm_fback(JOINT0) = storage[4];
+            this->arm_fback(JOINT1) = storage[5];
           }
           break;
 
@@ -236,40 +250,39 @@ void Arm::set_calibration_params(const string &filename) {
   delete buf;
 }
 
-bool Arm::calibrated() {
+bool Arm::calibrated(void) {
   return this->calibration_loaded;
 }
 
 void Arm::set_calibration_params(json cp) {
   vector<string> dofnames = {
-    "shoulder_yaw",
-    "shoulder_pitch",
-    "elbow_pitch",
-    "wrist_pitch",
-    "wrist_roll",
-    "hand_open"
+    "joint0",
+    "joint1",
+    "joint2",
+    "joint3",
+    "joint4",
+    "joint5"
   };
-  vector<int> dofids = { SH_YAW, SH_PITCH, EL_PITCH, WR_PITCH, WR_ROLL, HA_OPEN };
   for (int i = 0; i < DOF; i++) {
     string name = dofnames[i];
-    int id = dofids[i];
-    this->arm_minv(id) = cp[name]["min"];
-    this->arm_maxv(id) = cp[name]["max"];
-    this->arm_rev(id) = cp[name]["reversed"] ? 1 : 0;
+    this->arm_minv(i) = cp[name]["raw_min"];
+    this->arm_maxv(i) = cp[name]["raw_max"];
+    this->arm_mint(i) = cp[name]["theta_min"];
+    this->arm_maxt(i) = cp[name]["theta_max"];
   }
   this->calibration_loaded = true;
 }
 
 /** THREADED STUFF **/
 
-void Arm::update_uctrl() {
+void Arm::update_uctrl(void) {
   while (this->manager_running) {
     this->update_send();
     this->update_recv();
   }
 }
 
-void Arm::update_send() {
+void Arm::update_send(void) {
   struct timeval currtime;
   gettimeofday(&currtime, NULL);
   double secs = secdiff(this->prevwtime, currtime);
@@ -279,15 +292,15 @@ void Arm::update_send() {
     memcpy(&this->prevwtime, &currtime, sizeof(struct timeval));
   }
   this->wlock->lock();
-  mat arm_theta = this->buffered_arm_theta;
-  mat arm_vel = this->buffered_arm_vel;
+  vec arm_theta = this->buffered_arm_theta;
+  vec arm_vel = this->buffered_arm_vel;
   bool arm_theta_en = this->buffered_arm_theta_en;
   bool arm_vel_en = this->buffered_arm_vel_en;
   this->wlock->unlock();
   this->send(arm_theta, arm_vel, arm_theta_en, arm_vel_en);
 }
 
-void Arm::update_recv() {
+void Arm::update_recv(void) {
   vec arm_sensors = this->recv();
   this->rlock->lock();
   this->buffered_arm_sensors = arm_sensors;
@@ -295,8 +308,8 @@ void Arm::update_recv() {
 }
 
 void Arm::move(
-    const mat &arm_theta,
-    const mat &arm_vel,
+    const vec &arm_theta,
+    const vec &arm_vel,
     bool arm_theta_act,
     bool arm_vel_act) {
   this->wlock->lock();
@@ -307,60 +320,147 @@ void Arm::move(
   this->wlock->unlock();
 }
 
-vec Arm::sense() {
+vec Arm::sense(void) {
   this->rlock->lock();
   vec arm_sensors = this->buffered_arm_sensors;
   this->rlock->unlock();
   return arm_sensors;
 }
 
+void Arm::set_pose(
+    double joint0,
+    double joint1,
+    double joint2,
+    double joint3,
+    double joint4,
+    double joint5,
+    bool en) {
+  this->wlock->lock();
+  this->buffered_arm_theta = { joint0, joint1, joint2, joint3, joint4, joint5 };
+  this->buffered_arm_vel = zeros<vec>(DOF);
+  this->buffered_arm_theta_en = en;
+  this->buffered_arm_vel_en = false;
+  this->wlock->unlock();
+}
+
 /** KINEMATICS STUFF **/
 
-mat genRotateMat(double xy, double yz, double zx) {
+static mat genRotateMat(double x, double y, double z) {
   mat X = reshape(mat({
-        cos(xy), -sin(xy), 0,
-        sin(xy), cos(xy), 0,
-        0, 0, 1
+        1, 0, 0,
+        0, cos(x), -sin(x),
+        0, sin(x), cos(x)
         }), 3, 3).t();
   mat Y = reshape(mat({
-        1, 0, 0,
-        0, cos(yz), -sin(yz),
-        0, sin(yz), cos(yz)
+        cos(y), 0, sin(y),
+        0, 1, 0,
+        -sin(y), 0, cos(y)
         }), 3, 3).t();
   mat Z = reshape(mat({
-        cos(zx), 0, sin(zx),
-        0, 1, 0,
-        -sin(zx), 0, cos(zx)
+        cos(z), -sin(z), 0,
+        sin(z), cos(z), 0,
+        0, 0, 1
         }), 3, 3).t();
   return Z * Y * X;
 }
 
-vec Arm::fk_solve(const vec &enc, int legid) {
-  // solve arm (using D-H notation)
-  vec pos({ 0, 0, 5.0 }); // inches
+vec Arm::get_end_effector_pos(int linkid) {
+  // solve arm (using D-H notation and forward kinematics)
+
   // get the radians
   vec rad(DOF);
   for (int i = 0; i < DOF; i++) {
-    rad(i) = enc_transform(this->arm_mint(i), this->arm_maxt(i), -M_PI_4, M_PI_4, 0, enc(i));
+    rad(i) = map_domain( (double)this->arm_read(i),
+        vec({ this->arm_minv(i), this->arm_maxv(i) }),
+        vec({ this->arm_mint(i), this->arm_maxt(i) }));
   }
-  // get the translations
-  mat trans = reshape(mat({ // inches
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      4.0, 4.0, 4.0, 4.0, 4.0, 4.0
-    }), 6, 3).t();
 
-  // get the position
-  for (int i = DOF - 1; i >= 0; i--) {
-    mat R = reshape(mat({
-      cos(rad(i)), -sin(rad(i)), 0,
-      sin(rad(i)), cos(rad(i)), 0,
-      0, 0, 1 }), 3, 3).t();
-    vec t = trans.col(i);
-    pos = R * pos + t;
+  // get the rotations
+  vector<mat> rotate = {
+    genRotateMat(0, 0, rad(0)),
+    genRotateMat(-rad(1), 0, 0),
+    genRotateMat(-rad(2), 0, 0),
+    genRotateMat(-rad(3), 0, 0),
+    genRotateMat(0, 0, rad(4)),
+    genRotateMat(0, 0, 0)
+  };
+
+  // get the translations
+  vector<vec> translate = {
+    { 0, 0, this->arm_link_length(0) },
+    { 0, 0, this->arm_link_length(1) },
+    { 0, 0, this->arm_link_length(2) },
+    { 0, 0, this->arm_link_length(3) },
+    { 0, 0, this->arm_link_length(4) },
+    { 0, 0, this->arm_link_length(5) },
+    { 0, 0, this->arm_link_length(6) }
+  };
+
+  // get the position using the combination of rotations
+  // and the translations up to the linkid [0|1|2|3|4|5|6]
+  vec pos = translate[linkid];
+  for (int i = linkid - 1; i >= 0; i--) {
+    pos = rotate[i] * pos + translate[i];
   }
 
   return pos;
+}
+
+bool Arm::get_position_placement(vec target_pos, vec target_pose, double target_spin, vec &solution_enc) {
+  solution_enc = vec(DOF, fill::zeros);
+  vec solution_rad(DOF);
+
+  // solve first for the direction of the base
+  double r = sqrt(dot(target_pos(span(0, 1)), target_pos(span(0, 1))));
+  // solve for the height next
+  double h = target_pos(2) - sum(this->arm_link_length(span(0, 1)));
+  vec interpos({ r, 0, h });
+
+  // grab the target pose and the distance away necessary to make such a pose
+  target_pose /= sqrt(dot(target_pose, target_pose));
+  target_pose *= sum(this->arm_link_length(span(4, 6)));
+  interpos -= target_pose;
+
+  // find the length
+  double l = sqrt(dot(interpos, interpos));
+  if (l > sum(this->arm_link_length(span(2, 3)))) {
+    return false;
+  }
+
+  // determine some offset angle
+  double phi = atan2(h, r);
+  
+  // calculate the triangle edges
+  solution_rad(JOINT0) = atan2(target_pos(1), target_pos(0));
+  solution_rad(JOINT1) = cos_rule_angle(this->arm_link_length(2), l, this->arm_link_length(3)) + phi;
+
+  // check to make sure that the second joint with the third link does not hit the backplane
+  double basewidth = 6.0;
+  double baselength = 4.0;
+  double baseheight = this->arm_link_length(3);
+  vec side({ 0, 0, baseheight });
+  side = genRotateMat(-solution_rad(JOINT1), 0, 0) * side;
+  vec leftside = genRotateMat(0, 0, solution_rad(JOINT0)) * (side + vec({ -basewidth, -baselength, 0 }));
+  vec rightside = genRotateMat(0, 0, solution_rad(JOINT0)) * (side + vec({ basewidth, -baselength, 0 }));
+  if (leftside(1) < -8.0 || rightside(1) < -8.0) {
+    return false;
+  }
+
+  solution_rad(JOINT2) = cos_rule_angle(this->arm_link_length(2), this->arm_link_length(3), l);
+
+  // calculate the angle of the next joint from the offset angle
+  solution_rad(JOINT3) = -phi;
+  
+  // leave grabbing up to the programmer
+  solution_rad(JOINT4) = target_spin;
+  solution_rad(JOINT5) = M_PI_4;
+
+  for (int i = 0; i < 6; i++) {
+    solution_enc(i) = map_domain(solution_rad(i),
+        vec({ this->arm_mint(i), this->arm_maxt(i) }),
+        vec({ this->arm_minv(i), this->arm_maxv(i) }));
+  }
+  return true;
 }
 
 /** STATIC FUNCTIONS **/
@@ -375,18 +475,15 @@ static double limitf(double value, double min_value, double max_value) {
   }
 }
 
-//static double cos_rule_angle(double A, double B, double C) {
-//  return acos((A * A + B * B - C * C) / (2.0 * A * B));
-//}
+static double cos_rule_angle(double A, double B, double C) {
+  return acos((A * A + B * B - C * C) / (2.0 * A * B));
+}
 
-static double enc_transform(double mint, double maxt, double minv, double maxv, int reversed, double value) {
-  double enc_range = maxv - minv;
-  value = limitf(value, mint, maxt);
-  double ratio = enc_range / (maxt - mint);
-  if (reversed) {
-    value = -value;
-  }
-  return (value - mint) * ratio + minv;
+static double map_domain(double value, vec from, vec to) {
+  assert(from.n_elem == 2 && to.n_elem == 2);
+  value = limitf(value, from(1), from(0));
+  double ratio = (to(1) - to(0)) / (from(1) - from(0));
+  return (value - from(0)) * ratio + to(0);
 }
 
 static double secdiff(struct timeval &t1, struct timeval &t2) {

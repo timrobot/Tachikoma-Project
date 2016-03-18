@@ -21,9 +21,9 @@ const int twist = 2;
 const int grab = 3;
 
 // PID constants
-const double Kp = 1.2;
-const double Ki = 0.8;
-//const double Kd = 0.4; // for now not used
+const double Kp[4] = { 3.0, 3.0, 3.0, 3.0 };
+const double Ki[4] = { 2.0, 2.0, 2.0, 2.0 };
+const double Kd[4] = { 1.0, 1.0, 1.0, 1.0 };
 
 static int instr_activate;
 static bool arm_theta_act;
@@ -43,6 +43,7 @@ unsigned long piddiff;
 static char numbuf[8];
 
 static double total_err[4];
+static double prev_err[4];
 
 int limit(int x, int a, int b) {
   if (x > b) {
@@ -173,11 +174,8 @@ void loop() {
   if (millis() - timeout > 500) {
     // after .5 seconds, stop the robot
     memset(pvel, 0, sizeof(int) * 4);
-    setmotors(pvel);
-    vel[elbow] = 0;
-    vel[wrist] = 0;
-    vel[twist] = 0;
-    vel[grab] = 0;
+    memset(vel, 0, sizeof(int) * 4);
+    setmotors(vel);
     arm_theta_act = false;
     arm_vel_act = false;
     // safety sets
@@ -188,31 +186,51 @@ void loop() {
     piddiff = millis();
   } else if (arm_theta_act) {
     double err;
-    double dt = (double)(piddiff - millis()) / 1000.0;
+    double delta_err;
+    double dt = (double)(millis() - piddiff) / 1000.0; // in seconds
+    if (dt > 0) {
+      piddiff = millis();
+
+      err = (double)(pos[elbow] - analogRead(POTPIN4));
+      total_err[elbow] += err * dt;
+      delta_err = (err - prev_err[elbow]) / dt;
+      vel[elbow] = err * Kp[elbow] + total_err[elbow] * Ki[elbow] + delta_err * Kd[elbow];
+      prev_err[elbow] = err;
+
+      err = (double)(pos[wrist] - analogRead(POTPIN3));
+      total_err[wrist] += err * dt;
+      delta_err = (err - prev_err[wrist]) / dt;
+      vel[wrist] = err * Kp[wrist] + total_err[wrist] * Ki[wrist] + delta_err * Kd[wrist];
+      prev_err[wrist] = err;
+
+      err = (double)(pos[twist] - analogRead(POTPIN2));
+      total_err[twist] += err * dt;
+      delta_err = (err - prev_err[twist]) / dt;
+      vel[twist] = err * Kp[twist] + total_err[twist] * Ki[twist] + delta_err * Kd[twist];
+      prev_err[twist] = err;
+
+      err = (double)(pos[grab] - analogRead(POTPIN1));
+      total_err[grab] += err * dt;
+      delta_err = (err - prev_err[grab]) / dt;
+      vel[grab] = err * Kp[grab] + total_err[grab] * Ki[grab] + delta_err * Kd[grab];
+      prev_err[grab] = err;
+    }
+  } else {
+    memset(pvel, 0, sizeof(int) * 4);
+    memset(vel, 0, sizeof(int) * 4);
+    setmotors(vel);
     piddiff = millis();
-    // determine the error for the turning base
-    err = (double)(pos[elbow] - analogRead(POTPIN4));
-    total_err[elbow] += err * dt;
-    vel[elbow] = err * Kp + total_err[elbow] * Ki;
-    err = (double)(pos[wrist] - analogRead(POTPIN3));
-    total_err[wrist] += err * dt;
-    vel[wrist] = err * Kp + total_err[wrist] * Ki;
-    err = (double)(pos[twist] - analogRead(POTPIN2));
-    total_err[twist] += err * dt;
-    vel[twist] = err * Kp + total_err[twist] * Ki;
-    err = (double)(pos[grab] - analogRead(POTPIN1));
-    total_err[grab] += err * dt;
-    vel[grab] = err * Kp + total_err[grab] * Ki;
   }
 
-  int deltav[4] = { limit(vel[elbow] - pvel[elbow], -4, 4),
-                    limit(vel[wrist] - pvel[wrist], -4, 4),
-                    limit(vel[twist] - pvel[twist], -4, 4),
+  // ramp function for the signal output
+  int deltav[4] = { limit(vel[elbow] - pvel[elbow], -8, 8),
+                    limit(vel[wrist] - pvel[wrist], -8, 8),
+                    limit(vel[twist] - pvel[twist], -8, 8),
                     limit(vel[grab] - pvel[grab], -255, 255) };
   int v[4];
-  v[elbow] = limit(pvel[elbow] + deltav[elbow], -255, 255);
-  v[wrist] = limit(pvel[wrist] + deltav[wrist], -255, 255);
-  v[twist] = limit(pvel[twist] + deltav[twist], -255, 255);
+  v[elbow] = limit(pvel[elbow] + deltav[elbow], -172, 172);
+  v[wrist] = limit(pvel[wrist] + deltav[wrist], -172, 172);
+  v[twist] = limit(pvel[twist] + deltav[twist], -172, 172);
   v[grab] = limit(pvel[grab] + deltav[grab], -255, 255);
   
   // push the values to the motors
@@ -224,7 +242,7 @@ void loop() {
   pvel[grab] = v[grab];
 
   if (millis() - msecs > 50) {
-    sprintf(wbuf, "[%d %d %d %d %d %d %d %d %d %d %d]\n",
+    sprintf(wbuf, "[%d %d %d %d %d %d %d %d %d]\n",
         DEV_ID,
         analogRead(POTPIN4),
         analogRead(POTPIN3),
@@ -233,9 +251,7 @@ void loop() {
         pvel[elbow],
         pvel[wrist],
         pvel[twist],
-        pvel[grab],
-        arm_vel_act,
-        arm_theta_act);
+        pvel[grab]);
     Serial.print(wbuf);
     msecs = millis();
   }

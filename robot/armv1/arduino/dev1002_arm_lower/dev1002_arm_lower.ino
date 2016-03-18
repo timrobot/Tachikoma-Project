@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_PWMServoDriver.h"
+#include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <Servo.h>
 #include <string.h>
 
@@ -8,31 +8,26 @@
 
 #define POTPIN1   A0
 #define POTPIN2   A1
-#define POTPIN3   A2
-#define CURSENSE  A3
-#define BASE1     A4
-#define BASE2     A5
+#define CSENSE1   A2
+#define CSENSE2   A3
 
-Adafruit_MotorShield AFMS_base_pivot1(0x60);
-Adafruit_MotorShield AFMS_base_pivot2(0x61);
-Adafruit_DCMotor *motors[8];
-Servo base_turn[2]; // only 2, since each wire will go to 2 motors
-// the following are the ids
-const int turn = 0;
-const int pivot1 = 1;
-const int pivot2 = 2;
+Adafruit_MotorShield AFMS_base_pivot(0x60);
+Adafruit_DCMotor *motors[4];
+Servo base[2];
+const int chassis = 0;
+const int shoulder = 1;
 
 // PID constants
-const double Kp = 1.2;
-const double Ki = 0.8;
-//const double Kd = 0.4; // for now not used
+const double Kp[2] = { 3.0, 3.0 };
+const double Ki[2] = { 2.0, 2.0 };
+const double Kd[2] = { 1.0, 1.0 };
 
 static int instr_activate;
 static bool arm_theta_act;
 static bool arm_vel_act;
-static int pos[3];
-static int vel[3];
-static int pvel[3];
+static int pos[2];
+static int vel[2];
+static int pvel[2];
 
 const int bufsize = 256;
 const int safesize = bufsize / 2;
@@ -42,9 +37,10 @@ static char wbuf[safesize];
 unsigned long msecs;
 unsigned long timeout;
 unsigned long piddiff;
-static char numbuf[4];
+static char numbuf[8];
 
-static double total_err[3];
+static double total_err[2];
+static double prev_err[2];
 
 int limit(int x, int a, int b) {
   if (x > b) {
@@ -56,64 +52,62 @@ int limit(int x, int a, int b) {
   }
 }
 
-void setmotors(int v[]) { // 6 numbers
-  bool isneg[3];
-  // this only applies to the motors on the shields
-  int rev[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-  isneg[turn] = false;
-  v[turn] = limit(v[turn] * 90 / 255 + 90, 0, 180);
-  isneg[pivot1] = v[pivot1] < 0;
-  v[pivot1] = limit(abs(v[pivot1]), 0, 255);
-  isneg[pivot2] = v[pivot2] < 0;
-  v[pivot2] = limit(abs(v[pivot2]), 0, 255);
-
+void setmotors(int vv[]) { // 6 numbers
+  int v[2];
   for (int i = 0; i < 2; i++) {
-    base_turn[i].write(v[turn]);
+    v[i] = vv[i];
   }
-  for (int i = 0; i < 8; i++) {
-    int vid = i / 4 + 1; // hack
-    motors[i]->setSpeed(v[vid]);
-    if (v[vid] == 0) {
+  bool isneg;
+  // this only applies to the motors on the shields
+  int rev[4] = { 0, 0, 1, 1 };
+
+  v[chassis] = limit(v[chassis] * 90 / 255 + 90, 0, 180);
+  isneg = v[shoulder] < 0;
+  v[shoulder] = limit(abs(v[shoulder]), 0, 255);
+
+  base[0].write(v[chassis]);
+  base[chassis].write(180 - v[chassis]);
+
+  for (int i = 0; i < 4; i++) {
+    motors[i]->setSpeed(v[shoulder]);
+    if (v[shoulder] == 0) {
       motors[i]->run(RELEASE);
     } else {
-      bool neg = (isneg[vid] && !rev[i]) || (!isneg[vid] && rev[i]);
-      motors[i]->run(neg ? FORWARD : BACKWARD);
+      bool neg = (isneg && !rev[i]) || (!isneg && rev[i]);
+      motors[i]->run(neg ? BACKWARD : FORWARD);
     }
   }
 }
 
 void setup() {
-  
+
   Serial.begin(57600);
-  
+
   // set up the motors
-  base_turn[0].attach(BASE1);
-  base_turn[1].attach(BASE2);
+  base[0].attach(10);
+  base[1].attach(9);
   for (int i = 0; i < 4; i++) {
-    motors[i] = AFMS_base_pivot1.getMotor(i + 1);
-    motors[4 + i] = AFMS_base_pivot2.getMotor(i + 1);
+    motors[i] = AFMS_base_pivot.getMotor(i + 1);
   }
 
   // set up the sensors
   pinMode(POTPIN1, INPUT);
   pinMode(POTPIN2, INPUT);
-  pinMode(POTPIN3, INPUT);
-  pinMode(CURSENSE, INPUT);
+  pinMode(CSENSE1, INPUT);
+  pinMode(CSENSE2, INPUT);
 
   // flash led 13
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 
-  // turn on the motor shields
-  AFMS_base_pivot1.begin();
-  AFMS_base_pivot2.begin();
- 
+  // turn on the motor shield
+  AFMS_base_pivot.begin();
+
   setmotors(vel);
   msecs = millis();
   timeout = millis();
   piddiff = millis();
-  
+
 }
 
 void loop() {
@@ -137,14 +131,16 @@ void loop() {
       e[0] = '\0';
       if ((s = strrchr(buf, '['))) {
         // CUSTOMIZE (set the setpoint)
-        sscanf(s, "[%d %d %d %d %d %d %d]\n",
-          &instr_activate,
-          &pos[turn],
-          &pos[pivot1],
-          &pos[pivot2],
-          &vel[turn],
-          &vel[pivot1],
-          &vel[pivot2]);
+        sscanf(s, "[%d %d %d %d %d]\n",
+            &instr_activate,
+            &pos[chassis],
+            &pos[shoulder],
+            &vel[chassis],
+            &vel[shoulder]);
+        // limit the positional encoders
+        pos[chassis] = limit(pos[chassis], 100, 1000);
+        pos[shoulder] = limit(pos[shoulder], 213, 832);
+
         arm_theta_act = instr_activate & 0x01;
         arm_vel_act = (instr_activate & 0x02) >> 1;
         timeout = millis();
@@ -154,12 +150,11 @@ void loop() {
   }
 
   // EMERGENCY STOP: MASTER COMM LOST (for testing turn this off)
-  if (millis() - timeout > 500) {
+  if (millis() - timeout > 1000) {
     // after .5 seconds, stop the robot
-    setmotors(0, 0);
-    vel[turn] = 0;
-    vel[pivot1] = 0;
-    vel[pivot2] = 0;
+    memset(pvel, 0, sizeof(int) * 2);
+    memset(vel, 0, sizeof(int) * 2);
+    setmotors(vel);
     arm_theta_act = false;
     arm_vel_act = false;
     // safety sets
@@ -170,42 +165,52 @@ void loop() {
     piddiff = millis();
   } else if (arm_theta_act) {
     double err;
-    double dt = (double)(piddiff - millis()) / 1000.0;
+    double delta_err;
+    double dt = (double)(millis() - piddiff) / 1000.0; // in seconds
+    if (dt > 0) {
+      piddiff = millis();
+
+      err = (double)(pos[chassis] - analogRead(POTPIN2));
+      total_err[chassis] += err * dt;
+      delta_err = (err - prev_err[chassis]) / dt;
+      vel[chassis] = err * Kp[chassis] + total_err[chassis] * Ki[chassis] + delta_err * Kd[chassis];
+      prev_err[chassis] = err;
+
+      err = (double)(pos[shoulder] - analogRead(POTPIN1));
+      total_err[shoulder] += err * dt;
+      delta_err = (err - prev_err[shoulder]) / dt;
+      vel[shoulder] = err * Kp[shoulder] + total_err[shoulder] * Ki[shoulder] + delta_err * Kd[shoulder];
+      prev_err[shoulder] = err;
+    }
+  } else {
+    memset(pvel, 0, sizeof(int) * 2);
+    memset(vel, 0, sizeof(int) * 2);
+    setmotors(vel);
     piddiff = millis();
-    // determine the error for the turning base
-    err = (double)(pos[turn] - analogRead(POTPIN1));
-    total_err[turn] += err * dt;
-    vel[turn] = err * Kp + total_err[turn] * Ki;
-    err = (double)(pos[pivot1] - analogRead(POTPIN2));
-    total_err[pivot1] += err * dt;
-    vel[pivot1] = err * Kp + total_err[pivot1] * Ki;
-    err = (double)(pos[pivot2] - analogRead(POTPIN3));
-    total_err[pivot2] += err * dt;
-    vel[pivot2] = err * Kp + total_err[pivot2] * Ki;
   }
 
-  int deltav[3] = { limit(vel[turn] - pvel[turn], -4, 4),
-                    limit(vel[pivot1] - pvel[pivot1], -4, 4),
-                    limit(vel[pivot2] - pvel[pivot2], -4, 4) };
-  int v[3];
-  v[turn] = limit(pvel[turn] + deltav[turn], -255, 255);
-  v[pivot1] = limit(pvel[pivot1] + deltav[pivot1], -255, 255);
-  v[pivot2] = limit(pvel[pivot2] + deltav[pivot2], -255, 255);
-  setmotors(v);
-  pvel[turn] = v[turn];
-  pvel[pivot1] = v[pivot1];
-  pvel[pivot2] = v[pivot2];
-
+  // ramp function for the signal output
+  int deltav[2] = { limit(vel[chassis] - pvel[chassis], -8, 8),
+                    limit(vel[shoulder] - pvel[shoulder], -8, 8) };
+  int v[2];
+  v[chassis] = limit(pvel[chassis] + deltav[chassis], -172, 172);
+  v[shoulder] = limit(pvel[shoulder] + deltav[shoulder], -172, 172);
+  
   // push the values to the motors
-  setmotors(prevv);
+  setmotors(v);
+  
+  pvel[chassis] = v[chassis];
+  pvel[shoulder] = v[shoulder];
 
-  if (millis() - msecs > 100) {
-    sprintf(wbuf, "[%d %d %d %d %d]\n",
-      DEV_ID,
-      analogRead(POTPIN1),
-      analogRead(POTPIN2),
-      analogRead(POTPIN3),
-      analogRead(CURSENSE));
+  if (millis() - msecs > 50) {
+    sprintf(wbuf, "[%d %d %d %d %d %d %d]\n",
+        DEV_ID,
+        analogRead(POTPIN2),
+        analogRead(POTPIN1),
+        analogRead(CSENSE1),
+        analogRead(CSENSE2),
+        pvel[chassis],
+        pvel[shoulder]);
     Serial.print(wbuf);
     msecs = millis();
   }
