@@ -10,23 +10,23 @@
     "reversed": false
   },
   "elbow_pitch": {
-    "min": 300,
-    "max": 740,
+    "min": 310,
+    "max": 1000,
     "reversed": false
   },
   "wrist_pitch": {
-    "min": 300,
-    "max": 740,
+    "min": 100,
+    "max": 894,
     "reversed": false
   },
   "wrist_roll": {
-    "min": 300,
-    "max": 740,
+    "min": 100,
+    "max": 930,
     "reversed": false
   },
   "hand_open": {
-    "min": 300,
-    "max": 740,
+    "min": 600,
+    "max": 950,
     "reversed": false
   }
 }
