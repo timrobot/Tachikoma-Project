@@ -22,8 +22,8 @@ const int grab = 3;
 
 // PID constants
 const double Kp[4] = { 3.0, 3.0, 3.0, 3.0 };
-const double Ki[4] = { 2.0, 2.0, 2.0, 2.0 };
-const double Kd[4] = { 1.0, 1.0, 1.0, 1.0 };
+const double Ki[4] = { 2.0, 2.0, 2.0, 0.0 };
+const double Kd[4] = { 1.0, 1.0, 1.0, 0.0 };
 
 static int instr_activate;
 static bool arm_theta_act;
@@ -160,7 +160,7 @@ void loop() {
         pos[elbow] = limit(pos[elbow], 310, 1000);
         pos[wrist] = limit(pos[wrist], 100, 894);
         pos[twist] = limit(pos[twist], 100, 930);
-        pos[grab] = limit(pos[grab], 600, 950);
+        pos[grab] = limit(pos[grab], 600, 1000);
             
         arm_theta_act = instr_activate & 0x01;
         arm_vel_act = (instr_activate & 0x02) >> 1;
