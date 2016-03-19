@@ -13,7 +13,7 @@
 #include "defs.h"
 
 #define WBUFSIZE  128
-#define FPS 10
+#define FPS 10 // send values as fast as possible
 
 using namespace arma;
 using namespace std;
@@ -37,8 +37,6 @@ Arm::Arm(void) : BaseRobot(ARMV1) {
   this->arm_link_length = { 0.2, 5.0, 10.5, 6.5, 4.5, 3.8, 3.75 };
   this->calibration_loaded = false;
   this->devmgr = NULL;
-  this->rlock = NULL;
-  this->wlock = NULL;
   this->manager_running = false;
   this->buffered_arm_theta = zeros<vec>(DOF);
   this->buffered_arm_vel = zeros<vec>(DOF);
@@ -65,8 +63,6 @@ bool Arm::connect(void) {
     } else {
       this->reset();
       this->send(zeros<vec>(DOF), zeros<vec>(DOF));
-      this->rlock = new mutex;
-      this->wlock = new mutex;
       this->manager_running = true;
       this->devmgr = new thread(&Arm::update_uctrl, this);
     }
@@ -95,14 +91,6 @@ void Arm::disconnect(void) {
     this->devmgr = NULL;
   }
   BaseRobot::disconnect();
-  if (this->rlock) {
-    delete this->rlock;
-    this->rlock = NULL;
-  }
-  if (this->wlock) {
-    delete this->wlock;
-    this->wlock = NULL;
-  }
   printf("[ARM] Disconnected\n");
 }
 
@@ -141,7 +129,7 @@ void Arm::send(
 
   char msg[WBUFSIZE];
   for (size_t i = 0; i < this->connections.size(); i++) {
-    if (this->ids[i] > 0 && this->ids[i] <= 1) {
+    if (this->ids[i] > 1000 && this->ids[i] <= 1002) {
       switch ((devid = this->ids[i])) {
 
         case UPPER_ARM:
@@ -151,10 +139,10 @@ void Arm::send(
               (int)(arm[JOINT3]),
               (int)(arm[JOINT4]),
               (int)(arm[JOINT5]),
-              (int)(omega[JOINT2]),
-              (int)(omega[JOINT3]),
-              (int)(omega[JOINT4]),
-              (int)(omega[JOINT5]));
+              (int)(omega[JOINT2] * 255),
+              (int)(omega[JOINT3] * 255),
+              (int)(omega[JOINT4] * 255),
+              (int)(omega[JOINT5] * 255));
           serial_write(this->connections[i], msg);
           break;
 
@@ -163,8 +151,8 @@ void Arm::send(
               instr_activate,
               (int)(arm[JOINT0]),
               (int)(arm[JOINT1]),
-              (int)(omega[JOINT0]),
-              (int)(omega[JOINT1]));
+              (int)(omega[JOINT0] * 255),
+              (int)(omega[JOINT1] * 255));
           serial_write(this->connections[i], msg);
           break;
 
@@ -183,7 +171,7 @@ vec Arm::recv(void) {
 
   // read from device
   for (size_t i = 0; i < this->connections.size(); i++) {
-    if (this->ids[i] > 0 && this->ids[i] <= 1) {
+    if (this->ids[i] > 1000 && this->ids[i] <= 1002) {
       switch ((devid = this->ids[i])) {
 
         case UPPER_ARM:
@@ -197,14 +185,12 @@ vec Arm::recv(void) {
                 &storage[5],
                 &storage[6],
                 &storage[7]);
-            this->arm_read(JOINT2) = storage[0];
-            this->arm_read(JOINT3) = storage[1];
-            this->arm_read(JOINT4) = storage[2];
-            this->arm_read(JOINT5) = storage[3];
-            this->arm_fback(JOINT2) = storage[4];
-            this->arm_fback(JOINT3) = storage[5];
-            this->arm_fback(JOINT4) = storage[6];
-            this->arm_fback(JOINT5) = storage[7];
+            for (int i = 0; i < 4; i++) {
+              this->arm_read(i + 2) = map_domain(storage[i],
+                  vec({ this->arm_minv(i + 2), this->arm_maxv(i + 2) }),
+                  vec({ this->arm_mint(i + 2), this->arm_maxt(i + 2) }));
+              this->arm_fback(i + 2) = storage[i + 4];
+            }
           }
           break;
 
@@ -217,12 +203,13 @@ vec Arm::recv(void) {
                 &storage[3],
                 &storage[4],
                 &storage[5]);
-            this->arm_read(JOINT0) = storage[0];
-            this->arm_read(JOINT1) = storage[1];
-            this->arm_current(0) = storage[2];
-            this->arm_current(1) = storage[3];
-            this->arm_fback(JOINT0) = storage[4];
-            this->arm_fback(JOINT1) = storage[5];
+            for (int i = 0; i < 2; i++) {
+              this->arm_read(i) = map_domain(storage[i],
+                  vec({ this->arm_minv(i), this->arm_maxv(i) }),
+                  vec({ this->arm_mint(i), this->arm_maxt(i) }));
+              this->arm_current(i) = storage[i + 2];
+              this->arm_fback(i) = storage[i + 4];
+            }
           }
           break;
 
@@ -291,20 +278,20 @@ void Arm::update_send(void) {
   } else {
     memcpy(&this->prevwtime, &currtime, sizeof(struct timeval));
   }
-  this->wlock->lock();
+  this->wlock.lock();
   vec arm_theta = this->buffered_arm_theta;
   vec arm_vel = this->buffered_arm_vel;
   bool arm_theta_en = this->buffered_arm_theta_en;
   bool arm_vel_en = this->buffered_arm_vel_en;
-  this->wlock->unlock();
+  this->wlock.unlock();
   this->send(arm_theta, arm_vel, arm_theta_en, arm_vel_en);
 }
 
 void Arm::update_recv(void) {
-  vec arm_sensors = this->recv();
-  this->rlock->lock();
-  this->buffered_arm_sensors = arm_sensors;
-  this->rlock->unlock();
+  this->recv();
+  this->rlock.lock();
+  this->buffered_arm_sensors = this->arm_read;
+  this->rlock.unlock();
 }
 
 void Arm::move(
@@ -312,18 +299,18 @@ void Arm::move(
     const vec &arm_vel,
     bool arm_theta_act,
     bool arm_vel_act) {
-  this->wlock->lock();
+  this->wlock.lock();
   this->buffered_arm_theta = arm_theta;
   this->buffered_arm_vel = arm_vel;
   this->buffered_arm_theta_en = arm_theta_act;
   this->buffered_arm_vel_en = arm_vel_act;
-  this->wlock->unlock();
+  this->wlock.unlock();
 }
 
 vec Arm::sense(void) {
-  this->rlock->lock();
+  this->rlock.lock();
   vec arm_sensors = this->buffered_arm_sensors;
-  this->rlock->unlock();
+  this->rlock.unlock();
   return arm_sensors;
 }
 
@@ -335,12 +322,20 @@ void Arm::set_pose(
     double joint4,
     double joint5,
     bool en) {
-  this->wlock->lock();
+  this->wlock.lock();
   this->buffered_arm_theta = { joint0, joint1, joint2, joint3, joint4, joint5 };
   this->buffered_arm_vel = zeros<vec>(DOF);
   this->buffered_arm_theta_en = en;
   this->buffered_arm_vel_en = false;
-  this->wlock->unlock();
+  this->wlock.unlock();
+}
+
+void Arm::set_joint(double joint_value, int joint_id) {
+  this->wlock.lock();
+  this->buffered_arm_theta(joint_id) = joint_value;
+  this->buffered_arm_theta_en = true;
+  this->buffered_arm_vel_en = false;
+  this->wlock.unlock();
 }
 
 /** KINEMATICS STUFF **/
@@ -367,21 +362,13 @@ static mat genRotateMat(double x, double y, double z) {
 vec Arm::get_end_effector_pos(int linkid) {
   // solve arm (using D-H notation and forward kinematics)
 
-  // get the radians
-  vec rad(DOF);
-  for (int i = 0; i < DOF; i++) {
-    rad(i) = map_domain( (double)this->arm_read(i),
-        vec({ this->arm_minv(i), this->arm_maxv(i) }),
-        vec({ this->arm_mint(i), this->arm_maxt(i) }));
-  }
-
   // get the rotations
   vector<mat> rotate = {
-    genRotateMat(0, 0, rad(0)),
-    genRotateMat(-rad(1), 0, 0),
-    genRotateMat(-rad(2), 0, 0),
-    genRotateMat(-rad(3), 0, 0),
-    genRotateMat(0, 0, rad(4)),
+    genRotateMat(0, 0, this->arm_read(0)),
+    genRotateMat(-this->arm_read(1), 0, 0),
+    genRotateMat(-this->arm_read(2), 0, 0),
+    genRotateMat(-this->arm_read(3), 0, 0),
+    genRotateMat(0, 0, this->arm_read(4)),
     genRotateMat(0, 0, 0)
   };
 
@@ -457,11 +444,7 @@ bool Arm::get_position_placement(vec target_pos, vec target_pose, double target_
   solution_rad(JOINT4) = target_spin;
   solution_rad(JOINT5) = M_PI_4;
 
-  for (int i = 0; i < 6; i++) {
-    solution_enc(i) = map_domain(solution_rad(i),
-        vec({ this->arm_mint(i), this->arm_maxt(i) }),
-        vec({ this->arm_minv(i), this->arm_maxv(i) }));
-  }
+  solution_enc = solution_rad;
   return true;
 }
 
@@ -483,7 +466,7 @@ static double cos_rule_angle(double A, double B, double C) {
 
 static double map_domain(double value, vec from, vec to) {
   assert(from.n_elem == 2 && to.n_elem == 2);
-  value = limitf(value, from(1), from(0));
+  value = limitf(value, from(0), from(1));
   double ratio = (to(1) - to(0)) / (from(1) - from(0));
   return (value - from(0)) * ratio + to(0);
 }

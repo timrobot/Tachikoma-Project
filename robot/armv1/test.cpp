@@ -2,233 +2,98 @@
 #include "defs.h"
 #include <iostream>
 #include <signal.h>
-#include <SDL/SDL.h>
-#include <SDL/SDL_image.h>
-#include <SDL/SDL_ttf.h>
 #include <cstdint>
-#include <iostream>
 #include <fstream>
 #include <njson/json.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
+#include <thread>
 
-#define FPS 25
 #define KEYID(k) ((k)-'a')
 
 using namespace arma;
 using namespace std;
+using namespace cv;
 using json = nlohmann::json;
 static bool stopsig;
-
-// SDL SHIT
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
-const int SCREEN_BPP = 32;
-static SDL_Surface *message;
-static SDL_Surface *screen;
-static SDL_Event event;
-static TTF_Font *font;
 Arm arm;
-SDL_Color textColor = { 0xFF, 0xFF, 0xFF }; // white
-
-class ButtonInput {
-  public:
-  int x;
-  int y;
-  int w;
-  int h;
-  uint32_t c;
-
-  bool trigger;
-  ButtonInput(int _x, int _y, int _w, int _h, uint32_t _c);
-  ~ButtonInput();
-  void handle_input();
-  bool clicked();
-  void show();
-};
-
-ButtonInput::ButtonInput(int _x, int _y, int _w, int _h, uint32_t _c) {
-  x = _x;
-  y = _y;
-  w = _w;
-  h = _h;
-  c = _c;
-  trigger = false;
-}
-
-ButtonInput::~ButtonInput() {
-}
-
-void ButtonInput::handle_input() {
-  trigger = false;
-  if (event.type == SDL_MOUSEBUTTONDOWN) {
-    if (event.button.x >= x && event.button.x <= x + w &&
-        event.button.y >= y && event.button.y <= y + h) {
-      trigger = true;
-    }
-  }
-}
-
-bool ButtonInput::clicked() {
-  return trigger;
-}
-
-void ButtonInput::show() {
-  SDL_Rect r;
-  r.x = x;
-  r.y = y;
-  r.w = w;
-  r.h = h;
-  SDL_FillRect(screen, &r, c);
-}
-
-//The key press interpreter
-class StringInput
-{
-    private:
-    //The storage string
-    std::string str;
-
-    //The text surface
-    SDL_Surface *text;
-
-    public:
-    //Initializes variables
-    StringInput();
-
-    //Does clean up
-    ~StringInput();
-
-    //Handles input
-    void handle_input();
-
-    //Shows the message on screen
-    void show_centered();
-
-    //Clear the message buf
-    void clear_input();
-
-    //Get the input string
-    string get_input();
-};
-
-void stopsignal(int) {
-  stopsig = true;
-}
+thread ui;
+static int iValue[6];
 
 double deg2rad(double deg) {
   return deg * M_PI / 180.0;
 }
 
-void init() {
-  SDL_Init(SDL_INIT_EVERYTHING);
-  screen = SDL_SetVideoMode( SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE );
-  TTF_Init();
-  SDL_WM_SetCaption("Robot Interface", NULL);
-
-  font = TTF_OpenFont("lazy.ttf", 16);
+double rad2deg(double rad) {
+  return rad * 180.0 / M_PI;
 }
 
-void destroy() {
-  SDL_FreeSurface(message);
-  TTF_CloseFont(font);
-  TTF_Quit();
-  SDL_Quit();
+// These are the callbacks
+void joint0callback(int iValue, void *userData) {
+  double val = deg2rad(iValue - 90);
+  arm.set_joint(val, 0);
 }
 
-void apply_surface( int x, int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip = NULL )
-{
-    //Holds offsets
-    SDL_Rect offset;
-
-    //Get offsets
-    offset.x = x;
-    offset.y = y;
-
-    //Blit
-    SDL_BlitSurface( source, clip, destination, &offset );
+void joint1callback(int iValue, void *userData) {
+  double val = deg2rad(iValue - 90);
+  arm.set_joint(val, 1);
 }
 
-StringInput::StringInput() {
-  str = "";
-  text = NULL;
-  SDL_EnableUNICODE(SDL_ENABLE);
+void joint2callback(int iValue, void *userData) {
+  double val = deg2rad(iValue);
+  arm.set_joint(val, 2);
 }
 
-StringInput::~StringInput() {
-  SDL_FreeSurface(text);
-  text = NULL;
-  SDL_EnableUNICODE(SDL_DISABLE);
+void joint3callback(int iValue, void *userData) {
+  double val = deg2rad(iValue - 90);
+  arm.set_joint(val, 3);
 }
 
-void StringInput::show_centered() {
-  if (text) {
-    apply_surface((SCREEN_WIDTH - text->w) / 2, (SCREEN_HEIGHT - text->h) / 2, text, screen);
-  }
+void joint4callback(int iValue, void *userData) {
+  double val = deg2rad(iValue - 90);
+  arm.set_joint(val, 4);
 }
 
-void StringInput::handle_input()
-{
-    //If a key was pressed
-    if( event.type == SDL_KEYDOWN )
-    {
-        //Keep a copy of the current version of the string
-        std::string temp = str;
+void joint5callback(int iValue, void *userData) {
+  double val = deg2rad(iValue);
+  arm.set_joint(val, 5);
+}
 
-        //If the string less than maximum size
-        if( str.length() <= 16 )
-        {
-            //If the key is a space
-            if( event.key.keysym.unicode == (Uint16)' ' )
-            {
-                //Append the character
-                str += (char)event.key.keysym.unicode;
-            }
-            //If the key is a number
-            else if( ( event.key.keysym.unicode >= (Uint16)'0' ) && ( event.key.keysym.unicode <= (Uint16)'9' ) )
-            {
-                //Append the character
-                str += (char)event.key.keysym.unicode;
-            }
-            //If the key is a uppercase letter
-            else if( ( event.key.keysym.unicode >= (Uint16)'A' ) && ( event.key.keysym.unicode <= (Uint16)'Z' ) )
-            {
-                //Append the character
-                str += (char)event.key.keysym.unicode;
-            }
-            //If the key is a lowercase letter
-            else if( ( event.key.keysym.unicode >= (Uint16)'a' ) && ( event.key.keysym.unicode <= (Uint16)'z' ) )
-            {
-                //Append the character
-                str += (char)event.key.keysym.unicode;
-            }
-        }
+void stopsignal(int) {
+  stopsig = true;
+}
 
-        //If backspace was pressed and the string isn't blank
-        if( ( event.key.keysym.sym == SDLK_BACKSPACE ) && ( str.length() != 0 ) )
-        {
-            //Remove a character from the end
-            str.erase( str.length() - 1 );
-        }
-
-        //If the string was changed
-        if( str != temp )
-        {
-            //Free the old surface
-            SDL_FreeSurface( text );
-
-            //Render a new text surface
-            text = TTF_RenderText_Solid( font, str.c_str(), textColor );
-        }
+void run_ui(void) {
+  string winname = "Press any key to quit";
+  namedWindow(winname);
+  createTrackbar("Joint0", winname, &iValue[0], 180, joint0callback, NULL);
+  createTrackbar("Joint1", winname, &iValue[1], 180, joint1callback, NULL);
+  createTrackbar("Joint2", winname, &iValue[2], 180, joint2callback, NULL);
+  createTrackbar("Joint3", winname, &iValue[3], 180, joint3callback, NULL);
+  createTrackbar("Joint4", winname, &iValue[4], 180, joint4callback, NULL);
+  createTrackbar("Joint5", winname, &iValue[5], 180, joint5callback, NULL);
+  cv::Mat bufimage(400, 640, CV_8UC3);
+  for (;;) {
+    bufimage = Scalar(0, 0, 0);
+    vec values = arm.sense();
+    for (int i = 0; i < (int)values.n_elem; i++) {
+      values(i) = rad2deg(values(i));
     }
-}
+    values += vec({ 90, 90, 0, 90, 90, 0 });
 
-void StringInput::clear_input() {
-  str = "";
-  SDL_FreeSurface(text);
-  text = TTF_RenderText_Solid(font, str.c_str(), textColor);
-}
+    for (int i = 0; i < (int)values.n_elem; i++) {
+      Point topleft(80, 15 + i * 60);
+      Point btmright(values(i) * 3 + 80, 45 + i * 60);
+      rectangle(bufimage, topleft, btmright, Scalar(0, 255, 0));
+    }
 
-string StringInput::get_input() {
-  return str;
+    imshow(winname, bufimage);
+    int k = waitKey(30);
+    if (k >= 0) {
+      break;
+    }
+  }
 }
 
 void start_arm() {
@@ -259,51 +124,26 @@ void stop_arm() {
 
 int main() {
   signal(SIGINT, stopsignal);
-  init();
-  //ButtonInput send_button((SCREEN_WIDTH-100)/2 + 100, SCREEN_HEIGHT - ((SCREEN_HEIGHT/2)-40)/2, 100, 40, 0x0000FF00);
-  ButtonInput stop_button((SCREEN_WIDTH-100)/2, SCREEN_HEIGHT - ((SCREEN_HEIGHT/2)-40)/2, 100, 40, 0x00FF0000);
-  StringInput serial_message;
-  message = TTF_RenderText_Solid(font, "Enter message:", textColor);
 
   // connect to the arm 
-  //start_arm();
-
-  mat arm_pos(1, DOF, fill::zeros);
-  mat arm_vel(1, DOF, fill::zeros);
+  start_arm();
+  sleep(1);
+  vec values = arm.sense();
+  arm.set_pose(values(0), values(1), values(2), values(3), values(4), values(5));
+  iValue[0] = rad2deg(values(0)) + 90;
+  iValue[1] = rad2deg(values(1)) + 90;
+  iValue[2] = rad2deg(values(2));
+  iValue[3] = rad2deg(values(3)) + 90;
+  iValue[4] = rad2deg(values(4)) + 90;
+  iValue[5] = rad2deg(values(5));
 
   // run loop
-  bool position_en = false;
-  bool velocity_en = false;
+  thread ui_thread(run_ui);
+  ui_thread.join(); // wait until the ui is finished
 
-
-  while (!stopsig) {
-    while (SDL_PollEvent(&event)) {
-      stop_button.handle_input();
-      if (stop_button.clicked()) {
-        printf("clicked stop button\n");
-      }
-      serial_message.handle_input();
-      if ((event.type == SDL_KEYDOWN) && (event.key.keysym.sym == SDLK_RETURN)) {
-        string text = serial_message.get_input();
-        printf("typed: %s\n", text.c_str());
-        serial_message.clear_input();
-      }
-      if (event.type == SDL_QUIT) {
-        stopsig = true;
-      }
-    }
-
-    SDL_FillRect(screen, NULL, 0);
-    apply_surface((SCREEN_WIDTH - message->w)/2,((SCREEN_HEIGHT/2)-message->h)/2, message, screen);
-    serial_message.show_centered();
-    stop_button.show();
-
-    // render screen
-    SDL_Flip(screen);
-    SDL_Delay(25);
+  for (int i = 0; i < 100; i++) {
+    arm.set_pose(0, 0, 0, 0, 0, 0, false);
   }
-
   stop_arm();
-  destroy();
   return 0;
 }

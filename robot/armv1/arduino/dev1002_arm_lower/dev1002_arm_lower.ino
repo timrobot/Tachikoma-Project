@@ -19,8 +19,8 @@ const int shoulder = 1;
 
 // PID constants
 const double Kp[2] = { 3.0, 3.0 };
-const double Ki[2] = { 2.0, 2.0 };
-const double Kd[2] = { 1.0, 1.0 };
+const double Ki[2] = { 0, 0 };
+const double Kd[2] = { 0, 0 };
 
 static int instr_activate;
 static bool arm_theta_act;
@@ -56,6 +56,9 @@ void setmotors(int vv[]) { // 6 numbers
   int v[2];
   for (int i = 0; i < 2; i++) {
     v[i] = vv[i];
+    if (abs(v[i]) < 10) {
+      v[i] = 0;
+    }
   }
   bool isneg;
   // this only applies to the motors on the shields

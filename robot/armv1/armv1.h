@@ -56,6 +56,9 @@ class Arm : public BaseRobot {
         double joint5,
         bool en = true);
 
+    // technically slower, but lets you set one at a time
+    void set_joint(double joint_val, int joint_id);
+
     arma::vec get_end_effector_pos(int linkid = 6); // change to DOF later
     bool get_position_placement(
         arma::vec target_pos,
@@ -65,8 +68,8 @@ class Arm : public BaseRobot {
 
   private:
     std::thread *devmgr;
-    std::mutex *rlock;
-    std::mutex *wlock;
+    std::mutex rlock;
+    std::mutex wlock;
     bool manager_running;
 
     void update_uctrl(void);

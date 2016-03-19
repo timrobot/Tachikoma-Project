@@ -22,8 +22,8 @@ const int grab = 3;
 
 // PID constants
 const double Kp[4] = { 3.0, 3.0, 3.0, 3.0 };
-const double Ki[4] = { 2.0, 2.0, 2.0, 0.0 };
-const double Kd[4] = { 1.0, 1.0, 1.0, 0.0 };
+const double Ki[4] = { 0, 0, 0, 0 };
+const double Kd[4] = { 0, 0, 0, 0 };
 
 static int instr_activate;
 static bool arm_theta_act;
@@ -59,6 +59,9 @@ void setmotors(int vv[]) { // 6 numbers
   int v[4];
   for (int i = 0; i < 4; i++) {
     v[i] = vv[i];
+    if (abs(v[i]) < 10) { // prevent the noise from being too defeaning
+      v[i] = 0;
+    }
   }
   bool isneg[4];
   // this only applies to the motors on the shields

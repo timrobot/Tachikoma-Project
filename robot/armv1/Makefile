@@ -1,6 +1,6 @@
 CC = g++
-CFLAGS = -pedantic -Wall -fPIC --std=c++11 -O3 -g
-LIBS = -larmadillo -lSDL -lSDL_image -lSDL_ttf -lfreetype -pthread
+CFLAGS = -pedantic -Wall -fPIC --std=c++11 -O3 -g `pkg-config --cflags opencv`
+LIBS = -larmadillo `pkg-config --libs opencv` -pthread
 SERIAL = $(shell pwd)/../serial
 BASEROBOT = $(shell pwd)/..
 INCLUDE = -I$(SERIAL) -I$(BASEROBOT)
