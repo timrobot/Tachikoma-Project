@@ -14,8 +14,8 @@
   "joint2": {
     "raw_min": 310,
     "raw_max": 1000,
-    "theta_min": 0.196,
-    "theta_max": 3.142
+    "theta_min": 0.001,
+    "theta_max": 2.945
   },
   "joint3": {
     "raw_min": 100,

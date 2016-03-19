@@ -3,6 +3,8 @@
 #include <iostream>
 #include <signal.h>
 #include <SDL/SDL.h>
+#include <SDL/SDL_image.h>
+#include <SDL/SDL_ttf.h>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
@@ -16,6 +18,98 @@ using namespace std;
 using json = nlohmann::json;
 static bool stopsig;
 
+// SDL SHIT
+const int SCREEN_WIDTH = 640;
+const int SCREEN_HEIGHT = 480;
+const int SCREEN_BPP = 32;
+static SDL_Surface *message;
+static SDL_Surface *screen;
+static SDL_Event event;
+static TTF_Font *font;
+Arm arm;
+SDL_Color textColor = { 0xFF, 0xFF, 0xFF }; // white
+
+class ButtonInput {
+  public:
+  int x;
+  int y;
+  int w;
+  int h;
+  uint32_t c;
+
+  bool trigger;
+  ButtonInput(int _x, int _y, int _w, int _h, uint32_t _c);
+  ~ButtonInput();
+  void handle_input();
+  bool clicked();
+  void show();
+};
+
+ButtonInput::ButtonInput(int _x, int _y, int _w, int _h, uint32_t _c) {
+  x = _x;
+  y = _y;
+  w = _w;
+  h = _h;
+  c = _c;
+  trigger = false;
+}
+
+ButtonInput::~ButtonInput() {
+}
+
+void ButtonInput::handle_input() {
+  trigger = false;
+  if (event.type == SDL_MOUSEBUTTONDOWN) {
+    if (event.button.x >= x && event.button.x <= x + w &&
+        event.button.y >= y && event.button.y <= y + h) {
+      trigger = true;
+    }
+  }
+}
+
+bool ButtonInput::clicked() {
+  return trigger;
+}
+
+void ButtonInput::show() {
+  SDL_Rect r;
+  r.x = x;
+  r.y = y;
+  r.w = w;
+  r.h = h;
+  SDL_FillRect(screen, &r, c);
+}
+
+//The key press interpreter
+class StringInput
+{
+    private:
+    //The storage string
+    std::string str;
+
+    //The text surface
+    SDL_Surface *text;
+
+    public:
+    //Initializes variables
+    StringInput();
+
+    //Does clean up
+    ~StringInput();
+
+    //Handles input
+    void handle_input();
+
+    //Shows the message on screen
+    void show_centered();
+
+    //Clear the message buf
+    void clear_input();
+
+    //Get the input string
+    string get_input();
+};
+
 void stopsignal(int) {
   stopsig = true;
 }
@@ -24,21 +118,125 @@ double deg2rad(double deg) {
   return deg * M_PI / 180.0;
 }
 
-int main() {
-  signal(SIGINT, stopsignal);
+void init() {
   SDL_Init(SDL_INIT_EVERYTHING);
-  SDL_Surface *screen;
-  uint32_t start;
+  screen = SDL_SetVideoMode( SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE );
+  TTF_Init();
+  SDL_WM_SetCaption("Robot Interface", NULL);
 
-  // connect to the arm 
-  screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
-  Arm arm;
+  font = TTF_OpenFont("lazy.ttf", 16);
+}
+
+void destroy() {
+  SDL_FreeSurface(message);
+  TTF_CloseFont(font);
+  TTF_Quit();
+  SDL_Quit();
+}
+
+void apply_surface( int x, int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip = NULL )
+{
+    //Holds offsets
+    SDL_Rect offset;
+
+    //Get offsets
+    offset.x = x;
+    offset.y = y;
+
+    //Blit
+    SDL_BlitSurface( source, clip, destination, &offset );
+}
+
+StringInput::StringInput() {
+  str = "";
+  text = NULL;
+  SDL_EnableUNICODE(SDL_ENABLE);
+}
+
+StringInput::~StringInput() {
+  SDL_FreeSurface(text);
+  text = NULL;
+  SDL_EnableUNICODE(SDL_DISABLE);
+}
+
+void StringInput::show_centered() {
+  if (text) {
+    apply_surface((SCREEN_WIDTH - text->w) / 2, (SCREEN_HEIGHT - text->h) / 2, text, screen);
+  }
+}
+
+void StringInput::handle_input()
+{
+    //If a key was pressed
+    if( event.type == SDL_KEYDOWN )
+    {
+        //Keep a copy of the current version of the string
+        std::string temp = str;
+
+        //If the string less than maximum size
+        if( str.length() <= 16 )
+        {
+            //If the key is a space
+            if( event.key.keysym.unicode == (Uint16)' ' )
+            {
+                //Append the character
+                str += (char)event.key.keysym.unicode;
+            }
+            //If the key is a number
+            else if( ( event.key.keysym.unicode >= (Uint16)'0' ) && ( event.key.keysym.unicode <= (Uint16)'9' ) )
+            {
+                //Append the character
+                str += (char)event.key.keysym.unicode;
+            }
+            //If the key is a uppercase letter
+            else if( ( event.key.keysym.unicode >= (Uint16)'A' ) && ( event.key.keysym.unicode <= (Uint16)'Z' ) )
+            {
+                //Append the character
+                str += (char)event.key.keysym.unicode;
+            }
+            //If the key is a lowercase letter
+            else if( ( event.key.keysym.unicode >= (Uint16)'a' ) && ( event.key.keysym.unicode <= (Uint16)'z' ) )
+            {
+                //Append the character
+                str += (char)event.key.keysym.unicode;
+            }
+        }
+
+        //If backspace was pressed and the string isn't blank
+        if( ( event.key.keysym.sym == SDLK_BACKSPACE ) && ( str.length() != 0 ) )
+        {
+            //Remove a character from the end
+            str.erase( str.length() - 1 );
+        }
+
+        //If the string was changed
+        if( str != temp )
+        {
+            //Free the old surface
+            SDL_FreeSurface( text );
+
+            //Render a new text surface
+            text = TTF_RenderText_Solid( font, str.c_str(), textColor );
+        }
+    }
+}
+
+void StringInput::clear_input() {
+  str = "";
+  SDL_FreeSurface(text);
+  text = TTF_RenderText_Solid(font, str.c_str(), textColor);
+}
+
+string StringInput::get_input() {
+  return str;
+}
+
+void start_arm() {
   arm.connect();
-  
   if (!arm.connected()) {
     printf("[ARM TEST] Not connected to anything, disconnecting...\n");
     arm.disconnect();
-    return 1;
+    exit(1);
   }
 
   string params;
@@ -51,136 +249,61 @@ int main() {
   arm.set_calibration_params(json::parse(params));
   if (!arm.calibrated()) {
     arm.disconnect();
-    return 1;
+    exit(1);
   }
+}
+
+void stop_arm() {
+  arm.disconnect();
+}
+
+int main() {
+  signal(SIGINT, stopsignal);
+  init();
+  //ButtonInput send_button((SCREEN_WIDTH-100)/2 + 100, SCREEN_HEIGHT - ((SCREEN_HEIGHT/2)-40)/2, 100, 40, 0x0000FF00);
+  ButtonInput stop_button((SCREEN_WIDTH-100)/2, SCREEN_HEIGHT - ((SCREEN_HEIGHT/2)-40)/2, 100, 40, 0x00FF0000);
+  StringInput serial_message;
+  message = TTF_RenderText_Solid(font, "Enter message:", textColor);
+
+  // connect to the arm 
+  //start_arm();
 
   mat arm_pos(1, DOF, fill::zeros);
   mat arm_vel(1, DOF, fill::zeros);
 
   // run loop
-  char key_pressed[26];
   bool position_en = false;
   bool velocity_en = false;
-  memset(key_pressed, 0, 26 * sizeof(char));
 
-  bool initial_set = false;
 
   while (!stopsig) {
-    SDL_Event event;
-    start = SDL_GetTicks();
-    // grab events
     while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-        case SDL_QUIT:
-          stopsig = true;
-          break;
-        case SDL_KEYDOWN: {
-          switch (event.key.keysym.sym) {
-            case SDLK_q: key_pressed[KEYID('q')] = 1; break;
-            case SDLK_a: key_pressed[KEYID('a')] = 1; break;
-            case SDLK_w: key_pressed[KEYID('w')] = 1; break;
-            case SDLK_s: key_pressed[KEYID('s')] = 1; break;
-            case SDLK_e: key_pressed[KEYID('e')] = 1; break;
-            case SDLK_d: key_pressed[KEYID('d')] = 1; break;
-            case SDLK_i: key_pressed[KEYID('i')] = 1; break;
-            case SDLK_j: key_pressed[KEYID('j')] = 1; break;
-            case SDLK_o: key_pressed[KEYID('o')] = 1; break;
-            case SDLK_k: key_pressed[KEYID('k')] = 1; break;
-            case SDLK_p: key_pressed[KEYID('p')] = 1; break;
-            case SDLK_l: key_pressed[KEYID('l')] = 1; break;
-            case SDLK_8: velocity_en = true; position_en = false; break;
-            case SDLK_9: velocity_en = false; position_en = true; break;
-            case SDLK_0: velocity_en = false; position_en = false; break;
-            default: break;
-          }
-        } break;
-        case SDL_KEYUP: {
-          switch (event.key.keysym.sym) {
-            case SDLK_q: key_pressed[KEYID('q')] = 0; break;
-            case SDLK_a: key_pressed[KEYID('a')] = 0; break;
-            case SDLK_w: key_pressed[KEYID('w')] = 0; break;
-            case SDLK_s: key_pressed[KEYID('s')] = 0; break;
-            case SDLK_e: key_pressed[KEYID('e')] = 0; break;
-            case SDLK_d: key_pressed[KEYID('d')] = 0; break;
-            case SDLK_i: key_pressed[KEYID('i')] = 0; break;
-            case SDLK_j: key_pressed[KEYID('j')] = 0; break;
-            case SDLK_o: key_pressed[KEYID('o')] = 0; break;
-            case SDLK_k: key_pressed[KEYID('k')] = 0; break;
-            case SDLK_p: key_pressed[KEYID('p')] = 0; break;
-            case SDLK_l: key_pressed[KEYID('l')] = 0; break;
-            default: break;
-          }
-        } break;
-        default:
-          break;
+      stop_button.handle_input();
+      if (stop_button.clicked()) {
+        printf("clicked stop button\n");
       }
-    }
-    if (stopsig) {
-      continue;
-    }
-    // send over the values to the robot
-    cout << "calibrated? " << arm.calibrated() << endl;
-
-    if (!initial_set) {
-      arma::mat s = arm.sense().t();
-      if (accu(s) == 0) {
-        printf("error: cannot read the arm sensors\n");
-      } else {
-        printf("setting arm to read sensor values\n");
-        arm_pos = s;
-        initial_set = true;
+      serial_message.handle_input();
+      if ((event.type == SDL_KEYDOWN) && (event.key.keysym.sym == SDLK_RETURN)) {
+        string text = serial_message.get_input();
+        printf("typed: %s\n", text.c_str());
+        serial_message.clear_input();
+      }
+      if (event.type == SDL_QUIT) {
+        stopsig = true;
       }
     }
 
-    int k_q = key_pressed[KEYID('q')];
-    int k_a = key_pressed[KEYID('a')];
-    int k_w = key_pressed[KEYID('w')];
-    int k_s = key_pressed[KEYID('s')];
-    int k_e = key_pressed[KEYID('e')];
-    int k_d = key_pressed[KEYID('d')];
-    int k_i = key_pressed[KEYID('i')];
-    int k_j = key_pressed[KEYID('j')];
-    int k_o = key_pressed[KEYID('o')];
-    int k_k = key_pressed[KEYID('k')];
-    int k_p = key_pressed[KEYID('p')];
-    int k_l = key_pressed[KEYID('l')];
-    if (velocity_en) {
-      printf("velocity enabled\n");
-      printf("Controls:\n");
-      arm_vel(0) = (k_q - k_a);
-      arm_vel(1) = (k_w - k_s);
-      arm_vel(2) = (k_e - k_d);
-      arm_vel(3) = (k_i - k_j);
-      arm_vel(4) = (k_o - k_k);
-      arm_vel(5) = (k_p - k_l);
-      cout << arm_vel << endl;
-    } else if (position_en && initial_set) {
-      printf("position enabled\n");
-      arm_pos += vec({
-          (double)(k_q - k_a),
-          (double)(k_w - k_s),
-          (double)(k_e - k_d),
-          (double)(k_i - k_j),
-          (double)(k_o - k_k),
-          (double)(k_p - k_l) }).t() * 0.01;
-      printf("Angles:\n");
-      cout << arm_pos << endl;
-    } else {
-      printf("everything disabled\n");
-    }
-    arm.move(arm_pos, arm_vel, position_en, velocity_en);
-    // print out the feedback from the robot
-    vec arm_sensors = arm.sense();
-    printf("SENSORS:\n");
-    std::cout << arm_sensors.t() << std::endl;
+    SDL_FillRect(screen, NULL, 0);
+    apply_surface((SCREEN_WIDTH - message->w)/2,((SCREEN_HEIGHT/2)-message->h)/2, message, screen);
+    serial_message.show_centered();
+    stop_button.show();
 
     // render screen
     SDL_Flip(screen);
-    if (1000 / FPS > SDL_GetTicks() - start) {
-      SDL_Delay(1000 / FPS - (SDL_GetTicks() - start));
-    }
+    SDL_Delay(25);
   }
 
-  SDL_Quit();
+  stop_arm();
+  destroy();
   return 0;
 }

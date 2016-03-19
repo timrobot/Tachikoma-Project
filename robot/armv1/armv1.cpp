@@ -431,8 +431,10 @@ bool Arm::get_position_placement(vec target_pos, vec target_pose, double target_
   double phi = atan2(h, r);
   
   // calculate the triangle edges
-  solution_rad(JOINT0) = atan2(target_pos(1), target_pos(0));
-  solution_rad(JOINT1) = cos_rule_angle(this->arm_link_length(2), l, this->arm_link_length(3)) + phi;
+  solution_rad(JOINT0) = atan2(target_pos(1), target_pos(0)); // this is due to the y axis
+  double link2 = this->arm_link_length(2);
+  double link3 = this->arm_link_length(3);
+  solution_rad(JOINT1) = M_PI_2 - (cos_rule_angle(link2, l, link3) + phi); // this is due to the z axis
 
   // check to make sure that the second joint with the third link does not hit the backplane
   double basewidth = 6.0;
@@ -446,10 +448,10 @@ bool Arm::get_position_placement(vec target_pos, vec target_pose, double target_
     return false;
   }
 
-  solution_rad(JOINT2) = cos_rule_angle(this->arm_link_length(2), this->arm_link_length(3), l);
+  solution_rad(JOINT2) = M_PI_2 - cos_rule_angle(link2, link3, l); // this is due to the z axis
 
   // calculate the angle of the next joint from the offset angle
-  solution_rad(JOINT3) = -phi;
+  solution_rad(JOINT3) = M_PI_2 - phi - solution_rad(JOINT2) - solution_rad(JOINT1); // this is due to the z axis
   
   // leave grabbing up to the programmer
   solution_rad(JOINT4) = target_spin;
