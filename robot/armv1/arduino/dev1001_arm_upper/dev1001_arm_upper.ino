@@ -21,7 +21,7 @@ const int twist = 2;
 const int grab = 3;
 
 // PID constants
-const double Kp[4] = { 3.0, 3.0, 3.0, 3.0 };
+const double Kp[4] = { 3.0, 3.0, 2.5, 2.5 };
 const double Ki[4] = { 0, 0, 0, 0 };
 const double Kd[4] = { 0, 0, 0, 0 };
 
@@ -57,10 +57,13 @@ int limit(int x, int a, int b) {
 
 void setmotors(int vv[]) { // 6 numbers
   int v[4];
+  int Ktolerance[4] = { 20, 15, 15, 10 };
   for (int i = 0; i < 4; i++) {
     v[i] = vv[i];
-    if (abs(v[i]) < 10) { // prevent the noise from being too defeaning
+    if (abs(v[i]) < 10) {
       v[i] = 0;
+    } else {
+      v[i] += v[i] < 0 ? -Ktolerance[i] : Ktolerance[i];
     }
   }
   bool isneg[4];

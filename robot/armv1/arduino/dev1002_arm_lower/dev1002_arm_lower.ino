@@ -18,7 +18,7 @@ const int chassis = 0;
 const int shoulder = 1;
 
 // PID constants
-const double Kp[2] = { 3.0, 3.0 };
+const double Kp[2] = { 2.5, 3.0 };
 const double Ki[2] = { 0, 0 };
 const double Kd[2] = { 0, 0 };
 
@@ -54,10 +54,13 @@ int limit(int x, int a, int b) {
 
 void setmotors(int vv[]) { // 6 numbers
   int v[2];
+  int Ktolerance[2] = { 15, 20 };
   for (int i = 0; i < 2; i++) {
     v[i] = vv[i];
     if (abs(v[i]) < 10) {
       v[i] = 0;
+    } else {
+      v[i] += v[i] < 0 ? -Ktolerance[i] : Ktolerance[i];
     }
   }
   bool isneg;

@@ -65,17 +65,19 @@ void stopsignal(int) {
 }
 
 void run_ui(void) {
-  string winname = "Press any key to quit";
+  string winname = "Press 'q' to quit";
   namedWindow(winname);
   createTrackbar("Joint0", winname, &iValue[0], 180, joint0callback, NULL);
   createTrackbar("Joint1", winname, &iValue[1], 180, joint1callback, NULL);
   createTrackbar("Joint2", winname, &iValue[2], 180, joint2callback, NULL);
   createTrackbar("Joint3", winname, &iValue[3], 180, joint3callback, NULL);
   createTrackbar("Joint4", winname, &iValue[4], 180, joint4callback, NULL);
-  createTrackbar("Joint5", winname, &iValue[5], 180, joint5callback, NULL);
-  cv::Mat bufimage(400, 640, CV_8UC3);
+  createTrackbar("Claw", winname, &iValue[5], 180, joint5callback, NULL);
+  cv::Mat bufimage(480, 640, CV_8UC3);
+  char numbuf[64];
   for (;;) {
     bufimage = Scalar(0, 0, 0);
+
     vec values = arm.sense();
     for (int i = 0; i < (int)values.n_elem; i++) {
       values(i) = rad2deg(values(i));
@@ -83,14 +85,20 @@ void run_ui(void) {
     values += vec({ 90, 90, 0, 90, 90, 0 });
 
     for (int i = 0; i < (int)values.n_elem; i++) {
-      Point topleft(80, 15 + i * 60);
-      Point btmright(values(i) * 3 + 80, 45 + i * 60);
+      Point topleft(80, 20 + i * 80);
+      Point btmright(values(i) + 80, 60 + i * 80);
       rectangle(bufimage, topleft, btmright, Scalar(0, 255, 0));
+      sprintf(numbuf, "%0.2lf", values(i));
+      putText(bufimage, string(numbuf), Point(20, 60 + i * 80), FONT_HERSHEY_PLAIN, 1, Scalar(0, 255, 0), 1, 8, false);
     }
+
+    // display the forward kinematics
+    sprintf(numbuf, "%0.2lf", 
+    putText(bufimage, string(numbuf), Point(20, 60 + i * 80), FONT_HERSHEY_PLAIN, 1, Scalar(0, 255, 0), 1, 8, false);
 
     imshow(winname, bufimage);
     int k = waitKey(30);
-    if (k >= 0) {
+    if ((k & 0x7f) == 'q') {
       break;
     }
   }
