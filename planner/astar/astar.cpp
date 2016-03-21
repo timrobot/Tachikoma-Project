@@ -17,6 +17,8 @@
 using namespace arma;
 using namespace std;
 
+static vector<MotionAction> getNextAction(double x, double y, MotionAction currAction);
+
 /** The goal of this function is to initialize the AStar algorithm,
  *  including any data structures which you are to use in the
  *  computation of the next state
@@ -45,7 +47,7 @@ void AStar::compute(ivec &start, vector<ivec> &path) {
   this->isComplete = false;
   this->isImpossible = false;
 
-  heap<ivec> opened;
+  heap<MotionAction> opened;
   opened.push(start, sum(abs(start - goal)));
   // create a matrix of parents that have been closed
   imat closed(this->map.n_rows, this->map.n_cols, fill::zeros);
@@ -55,9 +57,9 @@ void AStar::compute(ivec &start, vector<ivec> &path) {
   // after pushing the initial state, start trying to get the next state
   while (!opened.empty()) {
     // grab a state
-    ivec next_state = opened.pop();
-    int x = next_state(0);
-    int y = next_state(1);
+    MotionAction next_state = opened.pop();
+    int x = next_state.x;
+    int y = next_state.y;
 
     closed(x, y) = true;
     int currcost = costs(x, y);
@@ -116,4 +118,30 @@ bool AStar::impossible(void) {
  */
 bool AStar::complete(void) {
   return this->isComplete;
+}
+
+/** Return a vector of possible actions at this particular action
+ *  @param x x position
+ *  @param y y position
+ *  @param currAction the current action of the robot
+ */
+static vector<MotionAction> getNextAction(double x, double y, MotionAction currAction, imat &map) {
+  imat neighbor4 = reshape(imat({
+      0, 0, -1, 1,
+      1, -1, 0, 0
+    }), 4, 2).t();
+  ivec neighborActions = { MOVE_FORWARD, MOVE_BACKWARD, MOVE_LEFT, MOVE_RIGHT };
+  vector<MotionAction> actionlist;
+  for (int i = 0; i < 4; i++) {
+    MotionAction action(x + neighbor4(0, i), y + neighbor4(1, i));
+    // check feasibility of the action
+    if (action.x >= map.n_cols || action.y >= map.n_rows || map(action.x, action.y) > 0.5) {
+      continue;
+    }
+    action.cost = 1;
+    action.gcost = currAction.cost + action.cost;
+    action.id = neighborActions[i];
+    actionlist.push_back(action);
+  }
+  return actionlist;
 }
