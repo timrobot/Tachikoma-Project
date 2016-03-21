@@ -54,7 +54,6 @@ void DStar::compute(arma::ivec &start, std::vector<arma::ivec> &path) {
 
   this->dijkstras(h);
 
-
   // after pushing the initial state, start trying to get the next state
   while (!opened.empty()) {
     // grab a state
