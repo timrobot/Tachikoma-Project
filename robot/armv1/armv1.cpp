@@ -15,6 +15,8 @@
 #define WBUFSIZE  128
 #define FPS 10 // send values as fast as possible
 
+// NOTE on units: all units are either degrees or inches unless otherwise specified
+
 using namespace arma;
 using namespace std;
 using json = nlohmann::json;
@@ -118,6 +120,7 @@ void Arm::send(
       arm[i] = map_domain(arm[i],
           vec({ this->arm_mint(i), this->arm_maxt(i) }),
           vec({ this->arm_minv(i), this->arm_maxv(i) }));
+      arm[i] = limitf(arm[i], this->arm_minv(i), this->arm_maxv(i));
     } else {
       arm_theta_act = false;
     }
@@ -221,24 +224,15 @@ vec Arm::recv(void) {
   return this->arm_read;
 }
 
-void Arm::set_calibration_params(const string &filename) {
-  FILE *fp;
-  if (!(fp = fopen(filename.c_str(), "r"))) {
-    return;
+void Arm::load_calibration_params(const string &filename) {
+  string params;
+  ifstream params_file(filename);
+  string temp;
+  while (getline(params_file, temp)) {
+    params += temp;
   }
-  int beg = ftell(fp);
-  fseek(fp, 0, SEEK_END);
-  int end = ftell(fp);
-  fseek(fp, 0, SEEK_SET);
-  char *buf = new char[end - beg + 1];
-  size_t bytesread = fread((void *)buf, sizeof(char), (size_t)(end - beg), fp);
-  buf[bytesread] = '\0';
-  this->set_calibration_params(json::parse(buf));
-  delete buf;
-}
-
-bool Arm::calibrated(void) {
-  return this->calibration_loaded;
+  params_file.close();
+  this->set_calibration_params(json::parse(params));
 }
 
 void Arm::set_calibration_params(json cp) {
@@ -258,6 +252,10 @@ void Arm::set_calibration_params(json cp) {
     this->arm_maxt(i) = cp[name]["theta_max"];
   }
   this->calibration_loaded = true;
+}
+
+bool Arm::calibrated(void) {
+  return this->calibration_loaded;
 }
 
 /** THREADED STUFF **/
@@ -341,6 +339,11 @@ void Arm::set_joint(double joint_value, int joint_id) {
 /** KINEMATICS STUFF **/
 
 static mat genRotateMat(double x, double y, double z) {
+  // convert the degrees into radians
+  x = x * M_PI / 180.0;
+  y = y * M_PI / 180.0;
+  z = z * M_PI / 180.0;
+
   mat X = reshape(mat({
         1, 0, 0,
         0, cos(x), -sin(x),
@@ -361,26 +364,28 @@ static mat genRotateMat(double x, double y, double z) {
 
 vec Arm::get_end_effector_pos(int linkid) {
   // solve arm (using D-H notation and forward kinematics)
+  vec angles = this->arm_read;
+  vec lengths = this->arm_link_length;
 
   // get the rotations
   vector<mat> rotate = {
-    genRotateMat(0, 0, this->arm_read(0)),
-    genRotateMat(-this->arm_read(1), 0, 0),
-    genRotateMat(-this->arm_read(2), 0, 0),
-    genRotateMat(-this->arm_read(3), 0, 0),
-    genRotateMat(0, 0, this->arm_read(4)),
+    genRotateMat(0, 0, angles(0)),
+    genRotateMat(-angles(1), 0, 0),
+    genRotateMat(-angles(2), 0, 0),
+    genRotateMat(-angles(3), 0, 0),
+    genRotateMat(0, 0, angles(4)),
     genRotateMat(0, 0, 0)
   };
 
   // get the translations
   vector<vec> translate = {
-    { 0, 0, this->arm_link_length(0) },
-    { 0, 0, this->arm_link_length(1) },
-    { 0, 0, this->arm_link_length(2) },
-    { 0, 0, this->arm_link_length(3) },
-    { 0, 0, this->arm_link_length(4) },
-    { 0, 0, this->arm_link_length(5) },
-    { 0, 0, this->arm_link_length(6) }
+    { 0, 0, lengths(0) },
+    { 0, 0, lengths(1) },
+    { 0, 0, lengths(2) },
+    { 0, 0, lengths(3) },
+    { 0, 0, lengths(4) },
+    { 0, 0, lengths(5) },
+    { 0, 0, lengths(6) }
   };
 
   // get the position using the combination of rotations
@@ -395,13 +400,15 @@ vec Arm::get_end_effector_pos(int linkid) {
 
 bool Arm::get_position_placement(vec target_pos, vec target_pose, double target_spin, vec &solution_enc) {
   solution_enc = vec(DOF, fill::zeros);
-  vec solution_rad(DOF);
+  vec angles(DOF);
 
   // solve first for the direction of the base
+  angles(JOINT0) = atan2(target_pos(1), target_pos(0)) * 180.0 / M_PI - 90.0; // this is due to the y axis
+  target_pose = genRotateMat(0, 0, -angles(JOINT0)) * target_pose;
   double r = sqrt(dot(target_pos(span(0, 1)), target_pos(span(0, 1))));
   // solve for the height next
   double h = target_pos(2) - sum(this->arm_link_length(span(0, 1)));
-  vec interpos({ r, 0, h });
+  vec interpos({ 0, r, h });
 
   // grab the target pose and the distance away necessary to make such a pose
   target_pose /= sqrt(dot(target_pose, target_pose));
@@ -415,36 +422,36 @@ bool Arm::get_position_placement(vec target_pos, vec target_pose, double target_
   }
 
   // determine some offset angle
-  double phi = atan2(h, r);
+  double phi = atan2(interpos(2), interpos(1)) * 180.0 / M_PI;
   
   // calculate the triangle edges
-  solution_rad(JOINT0) = atan2(target_pos(1), target_pos(0)); // this is due to the y axis
+  angles(JOINT0) = atan2(target_pos(1), target_pos(0)) * 180.0 / M_PI - 90.0; // this is due to the y axis
   double link2 = this->arm_link_length(2);
   double link3 = this->arm_link_length(3);
-  solution_rad(JOINT1) = M_PI_2 - (cos_rule_angle(link2, l, link3) + phi); // this is due to the z axis
+  angles(JOINT1) = 90.0 - (cos_rule_angle(link2, l, link3) + phi); // this is due to the z axis
 
   // check to make sure that the second joint with the third link does not hit the backplane
   double basewidth = 6.0;
   double baselength = 4.0;
   double baseheight = this->arm_link_length(3);
   vec side({ 0, 0, baseheight });
-  side = genRotateMat(-solution_rad(JOINT1), 0, 0) * side;
-  vec leftside = genRotateMat(0, 0, solution_rad(JOINT0)) * (side + vec({ -basewidth, -baselength, 0 }));
-  vec rightside = genRotateMat(0, 0, solution_rad(JOINT0)) * (side + vec({ basewidth, -baselength, 0 }));
+  side = genRotateMat(-angles(JOINT1), 0, 0) * side;
+  vec leftside = genRotateMat(0, 0, angles(JOINT0)) * (side + vec({ -basewidth, -baselength, 0 }));
+  vec rightside = genRotateMat(0, 0, angles(JOINT0)) * (side + vec({ basewidth, -baselength, 0 }));
   if (leftside(1) < -8.0 || rightside(1) < -8.0) {
     return false;
   }
 
-  solution_rad(JOINT2) = M_PI_2 - cos_rule_angle(link2, link3, l); // this is due to the z axis
+  angles(JOINT2) = 180.0 - cos_rule_angle(link2, link3, l); // this is due to the z axis
 
   // calculate the angle of the next joint from the offset angle
-  solution_rad(JOINT3) = M_PI_2 - phi - solution_rad(JOINT2) - solution_rad(JOINT1); // this is due to the z axis
+  angles(JOINT3) = 90.0 - atan2(target_pose(2), target_pose(1)) * 180.0 / M_PI  - angles(JOINT1) - angles(JOINT2); // this is due to the z axis
   
   // leave grabbing up to the programmer
-  solution_rad(JOINT4) = target_spin;
-  solution_rad(JOINT5) = M_PI_4;
+  angles(JOINT4) = target_spin;
+  angles(JOINT5) = 45.0;
 
-  solution_enc = solution_rad;
+  solution_enc = angles;
   return true;
 }
 
@@ -461,7 +468,7 @@ static double limitf(double value, double min_value, double max_value) {
 }
 
 static double cos_rule_angle(double A, double B, double C) {
-  return acos((A * A + B * B - C * C) / (2.0 * A * B));
+  return acos((A * A + B * B - C * C) / (2.0 * A * B)) * 180 / M_PI;
 }
 
 static double map_domain(double value, vec from, vec to) {

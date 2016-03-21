@@ -23,7 +23,7 @@ class Arm : public BaseRobot {
     arma::vec recv(void);
     void reset(void);
 
-    void set_calibration_params(const std::string &filename);
+    void load_calibration_params(const std::string &filename);
     void set_calibration_params(nlohmann::json cp);
     bool calibrated(void);
 
