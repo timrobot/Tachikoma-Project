@@ -3,16 +3,24 @@
 
 #include <vector>
 #include <armadillo>
+#include "actions.h"
 
 class DStar {
   public:
     DStar(arma::imat map, arma::ivec &goal);
     ~DStar(void);
-    void compute(arma::ivec &start, std::vector<arma::ivec> &path);
+    void compute(arma::ivec &start, std::vector<MotionAction> &path);
     bool complete(void);
     bool impossible(void);
-  private:
-    void dijkstras(arma::imat &h);
+
+    arma::imat map;
+    arma::ivec goal;
+
+    // stuff for the decision making capability
+	  bool isComplete;
+    bool isImpossible;
+    DStarProp prop;
+
 };
 
 #endif

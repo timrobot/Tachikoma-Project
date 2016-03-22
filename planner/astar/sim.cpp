@@ -6,7 +6,6 @@
 #include "astar.h"
 #include "sim_window.h"
 #include "draw.h"
-#include "maze_gen.h"
 #include "maze_imgio.h"
 
 #define t_delay 25
@@ -81,19 +80,21 @@ void run_map(imat map) {
 
   // compute the path
   AStar astar(map, goal);
-  vector<ivec> path;
+  vector<MotionAction> path;
   astar.compute(start, path);
   if (astar.impossible()) {
     printf("It is impossible!\n");
     return;
   }
-  for (ivec &v : path) {
-    cout << v << endl;
+  vector<ivec> pathpos;
+  for (MotionAction &action : path) {
+    cout << action << endl;
+    pathpos.push_back(ivec({ (int)action.x, (int)action.y }));
   }
   
   // compute the interpolation
   // lookahead requires bounds
-  vector<ivec> traj;
+  /*vector<ivec> traj;
   for (int i = 2; i < path.size() - 2; i++) {
     ivec p[5];
     p[0] = v[i-2];
@@ -104,12 +105,11 @@ void run_map(imat map) {
     traj.push_back((p[1](1)-p[0](1)/p[1](0)-p[0](0))+
     (p[2](1)-p[0](1)/p[2](0)-p[0](0))+
     (p[3](1)-p[0](1)/p[3](0)-p[0](0))+
-    (p[4](1)-p[0](1)/p[4](0)-p[0](0)))/4);
-  }
+    (p[4](1)-p[0](1)/p[4](0)-p[0](0)))/4;
+  }*/
 
   // draw it out
-  //drawGrid(pathmap, map);
-  drawPath(pathmap, path);
+  drawPath(pathmap, pathpos);
   drawBot(pathmap, start(0), start(1));
   blitRGB(screen, pathmap);
   sim_window::update();
@@ -139,13 +139,14 @@ int main(int argc, char *argv[]) {
       fname = arg1.substr(pos+1, arg1.size()-pos-1);
       maze = load_maze(fname);
     } else if (arg1.substr(0, pos).compare("random") == 0) {
-      RANDOM = 1;
+      /*RANDOM = 1;
       block_prob = atoi(arg1.substr(pos+1, arg1.size()-pos-1).c_str());
       if (block_prob < 0 || block_prob > 100) {
         printf("error: probability must be between 0 to 100\n");
         return 1;
       }
-      maze = maze_gen(MAZESIZE, block_prob);
+      maze = maze_gen(MAZESIZE, block_prob);*/
+      return 1;
     } else {
       printf("error: format is [random=<block_prob>|file=<filename>]\n");
       return 1;
@@ -173,7 +174,8 @@ int main(int argc, char *argv[]) {
     }
   }
   // create maps
-  setBlockSize(5);
+  setBlockSize(2);
+  setLineThickness(0);
   screen = sim_window::init(getGridWidth(maze.n_cols), getGridHeight(maze.n_rows));
   run_map(maze);
   sleep(3);

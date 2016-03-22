@@ -1,14 +1,14 @@
-#ifndef heap_h
-#define heap_h
+#ifndef __TK_HEAP_H__
+#define __TK_HEAP_H__
 
 #include <vector>
 #include <stdexcept>
 
 template <class T>
-class heap {
+class Heap {
   public:
-    heap(void);
-    ~heap(void);
+    Heap(void);
+    ~Heap(void);
     void siftup(void);
     void siftdown(void);
     void push(T const &item, int priority);
@@ -24,5 +24,8 @@ class heap {
     int lchild(int index) const;
     int rchild(int index) const;
 };
+
+// for now, also include heap.cpp
+// will fix later
 
 #endif

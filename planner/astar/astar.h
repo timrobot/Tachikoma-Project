@@ -1,5 +1,7 @@
 //
-//	[Author] = Ming Tai Ha
+//	[Authors] = Ming Tai Ha
+//              Jon Risinger
+//              Timothy Yong
 //
 
 #ifndef __TK_ASTAR_H__
@@ -7,6 +9,7 @@
 
 #include <vector>
 #include <armadillo>
+#include "actions.h"
 
 enum Ftype { F_FORWARD, F_BACKWARD };
 enum Gtype { G_MIN, G_MAX };
@@ -27,7 +30,7 @@ class AStar {
     AStar(arma::imat map, arma::ivec &goal,
       AStarProp prop = AStarProp(F_FORWARD, G_MAX, H_EUCLIDEAN, false));
     ~AStar(void);
-    void compute(arma::ivec &start, std::vector<arma::ivec> &path);
+    void compute(arma::ivec &start, std::vector<MotionAction> &path);
     bool complete(void);
     bool impossible(void);
 

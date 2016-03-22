@@ -1,18 +1,18 @@
-#include "heap.h"
+#include "Heap.h"
 #include <stdexcept>
 
 using namespace std;
 
 template <class T>
-heap<T>::heap(void) {
+Heap<T>::Heap(void) {
 }
 
 template <class T>
-heap<T>::~heap(void) {
+Heap<T>::~Heap(void) {
 }
 
 template <class T>
-void heap<T>::swap(int const &a, int const &b) {
+void Heap<T>::swap(int const &a, int const &b) {
   T temp = this->queue[a];
   this->queue[a] = this->queue[b];
   this->queue[b] = temp;
@@ -22,9 +22,9 @@ void heap<T>::swap(int const &a, int const &b) {
 }
 
 template <class T>
-void heap<T>::siftup(void) {
+void Heap<T>::siftup(void) {
   if (this->queue.empty()) {
-    throw std::out_of_range("heap<>::siftup(): empty heap");
+    throw std::out_of_range("Heap<>::siftup(): empty heap");
   }
   int curr = this->queue.size() - 1;
   while (curr != 0) {
@@ -38,7 +38,7 @@ void heap<T>::siftup(void) {
 }
 
 template <class T>
-void heap<T>::siftdown(void) {
+void Heap<T>::siftdown(void) {
   int curr = 0;
   int target = lchild(curr);
   while (target < this->queue.size()) {
@@ -59,16 +59,16 @@ void heap<T>::siftdown(void) {
 }
 
 template <class T>
-void heap<T>::push(T const &item, int priority) {
+void Heap<T>::push(T const &item, int priority) {
   this->queue.push_back(item);
   this->priorities.push_back(priority);
   this->siftup();
 }
 
 template <class T>
-T heap<T>::pop(void) {
+T Heap<T>::pop(void) {
   if (this->queue.empty()) {
-    throw std::out_of_range("heap<>::pop(): empty heap");
+    throw std::out_of_range("Heap<>::pop(): empty heap");
   } else {
     // take the first item off
     T s = this->queue[0];
@@ -82,26 +82,26 @@ T heap<T>::pop(void) {
 }
 
 template <class T>
-bool heap<T>::empty(void) const {
+bool Heap<T>::empty(void) const {
   return this->queue.empty();
 }
 
 template <class T>
-size_t heap<T>::size(void) const {
+size_t Heap<T>::size(void) const {
   return this->queue.size();
 }
 
 template <class T>
-int heap<T>::parent(int index) const {
+int Heap<T>::parent(int index) const {
   return (index - 1) / 2;
 }
 
 template <class T>
-int heap<T>::lchild(int index) const {
+int Heap<T>::lchild(int index) const {
   return (index * 2) + 1;
 }
 
 template <class T>
-int heap<T>::rchild(int index) const {
+int Heap<T>::rchild(int index) const {
   return (index * 2) + 2;
 }
