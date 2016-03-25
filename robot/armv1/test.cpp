@@ -99,6 +99,7 @@ void run_ui(void) {
       sprintf(numbuf, "[%0.2lf %0.2lf %0.2lf]", eepos(0), eepos(1), eepos(2));
       putText(bufimage, string(numbuf), Point(280, 60 + i * 60), FONT_HERSHEY_PLAIN, 1, Scalar(255, 32, 10), 1, 8, false);
     }
+    // draw shit
     vector<Scalar> colors = { Scalar(0,0,0), Scalar(255,0,128), Scalar(255,0,0), Scalar(255,128,0), Scalar(0,128,0), Scalar(0,128,255), Scalar(0,0,255) };
     for (int i = 0; i <= 6; i++) {
       vec pos1 = positions.col(i);
@@ -120,11 +121,11 @@ void run_ui(void) {
 
 void start_arm() {
   arm.connect();
-  /*if (!arm.connected()) {
+  if (!arm.connected()) {
     printf("[ARM TEST] Not connected to anything, disconnecting...\n");
     arm.disconnect();
     exit(1);
-  }*/
+  }
 
   arm.load_calibration_params("calib_params.json");
   if (!arm.calibrated()) {
@@ -142,18 +143,10 @@ int main(int argc, char *argv[]) {
 
   // connect to the arm 
   start_arm();
-  /*sleep(1);
+  sleep(1);
   vec values = arm.sense();
-  arm.set_pose(values(0), values(1), values(2), values(3), values(4), values(5));*/
-  //vec values = { 0, -30, 135, -15, 0, 0 };
-  vec values;
-  bool valid = arm.get_position_placement(vec({ 0, atof(argv[1]), atof(argv[2]) }), vec({ 0, 1, 0 }), 0, values);
-  if (!valid) {
-    printf("Not possible\n");
-    return 1;
-  }
+  arm.set_pose(values(0), values(1), values(2), values(3), values(4), values(5));
   sense = values;
-  arm.arm_read = values;
   values += vec({ 90, 90, 0, 90, 90, 0 });
   iValue[0] = (values(0));
   iValue[1] = (values(1));
@@ -166,9 +159,9 @@ int main(int argc, char *argv[]) {
   thread ui_thread(run_ui);
   ui_thread.join(); // wait until the ui is finished
 
-  /*for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < 100; i++) {
     arm.set_pose(0, 0, 0, 0, 0, 0, false);
-  }*/
+  }
   stop_arm();
   return 0;
 }
