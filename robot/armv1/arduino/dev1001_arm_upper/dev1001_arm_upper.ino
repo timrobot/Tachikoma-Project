@@ -55,7 +55,7 @@ int limit(int x, int a, int b) {
   }
 }
 
-void setmotors(int vv[]) { // 6 numbers
+void setmotors(int vv[]) {
   int v[4];
   int Ktolerance[4] = { 20, 15, 15, 10 };
   for (int i = 0; i < 4; i++) {

@@ -11,9 +11,9 @@
 #define CSENSE1   A2
 #define CSENSE2   A3
 
-Adafruit_MotorShield AFMS_base_pivot(0x60);
-Adafruit_DCMotor *motors[4];
-Servo base[2];
+Adafruit_MotorShield AFMS_base_pivot1(0x60);
+Adafruit_MotorShield AFMS_base_pivot2(0x61);
+Adafruit_DCMotor *motors[8];
 const int chassis = 0;
 const int shoulder = 1;
 
@@ -52,7 +52,7 @@ int limit(int x, int a, int b) {
   }
 }
 
-void setmotors(int vv[]) { // 6 numbers
+void setmotors(int vv[]) {
   int v[2];
   int Ktolerance[2] = { 15, 20 };
   for (int i = 0; i < 2; i++) {
@@ -63,23 +63,28 @@ void setmotors(int vv[]) { // 6 numbers
       v[i] += v[i] < 0 ? -Ktolerance[i] : Ktolerance[i];
     }
   }
-  bool isneg;
+  bool isneg[2];
   // this only applies to the motors on the shields
-  int rev[4] = { 0, 0, 1, 1 };
+  int rev[4] = { 0, 0, 1, 1, 1, 1, 0, 0 };
 
-  v[chassis] = limit(v[chassis] * 90 / 255 + 90, 0, 180);
-  isneg = v[shoulder] < 0;
+  isneg[chassis] = v[chassis] < 0;
+  v[chassis] = limit(abs(v[chassis]), 0, 255);
+  isneg[shoulder] = v[shoulder] < 0;
   v[shoulder] = limit(abs(v[shoulder]), 0, 255);
 
-  base[0].write(v[chassis]);
-  base[chassis].write(180 - v[chassis]);
+  int speeds[8] = {
+    v[shoulder], v[shoulder], v[shoulder], v[shoulder],
+    v[chassis], v[chassis], 0, 0 };
+  int isneg2[8] = {
+    isneg[shoulder], isneg[shoulder], isneg[shoulder], isneg[shoulder],
+    isneg[chassis], isneg[chassis], 0, 0 };
 
-  for (int i = 0; i < 4; i++) {
-    motors[i]->setSpeed(v[shoulder]);
-    if (v[shoulder] == 0) {
+  for (int i = 0; i < 8; i++) {
+    motors[i]->setSpeed(speeds[i]);
+    if (speeds[i] == 0) {
       motors[i]->run(RELEASE);
     } else {
-      bool neg = (isneg && !rev[i]) || (!isneg && rev[i]);
+      bool neg = (isneg2[i] && !rev[i]) || (!isneg2[i] && rev[i]);
       motors[i]->run(neg ? BACKWARD : FORWARD);
     }
   }
@@ -90,10 +95,9 @@ void setup() {
   Serial.begin(57600);
 
   // set up the motors
-  base[0].attach(10);
-  base[1].attach(9);
   for (int i = 0; i < 4; i++) {
-    motors[i] = AFMS_base_pivot.getMotor(i + 1);
+    motors[i] = AFMS_base_pivot1.getMotor(i + 1);
+    motors[4 + i] = AFMS_base_pivot2.getMotor(i + 1);
   }
 
   // set up the sensors
@@ -107,7 +111,8 @@ void setup() {
   digitalWrite(13, HIGH);
 
   // turn on the motor shield
-  AFMS_base_pivot.begin();
+  AFMS_base_pivot1.begin();
+  AFMS_base_pivot2.begin();
 
   setmotors(vel);
   msecs = millis();
@@ -156,7 +161,7 @@ void loop() {
   }
 
   // EMERGENCY STOP: MASTER COMM LOST (for testing turn this off)
-  if (millis() - timeout > 1000) {
+  if (millis() - timeout > 500) {
     // after .5 seconds, stop the robot
     memset(pvel, 0, sizeof(int) * 2);
     memset(vel, 0, sizeof(int) * 2);
