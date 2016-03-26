@@ -56,7 +56,7 @@ mat canny2(const mat &F, double low, double high, uword n, double sigma2) { // n
   mat strong = (G >= high) % H;
   mat weak = (low < G && G < high) % H;
   // hysteresis edge-tracking
-  mat K = strong + weak;
+//  mat K = strong + weak;
 //  K /= K;
   return strong;
 }
@@ -264,6 +264,7 @@ mat hough_line(const vector<vec> &pts, double sigma2, size_t n_rows, size_t n_co
   return hlines;
 }
 
+// TODO
 mat hough_circle(const vector<vec> &pts, double sigma2, size_t n_rows, size_t n_cols) {
   cube accumulator(n_rows, n_cols, 2 * (n_rows + n_cols), fill::zeros);
   for (uword R = 0; R < accumulator.n_slices; R++) {

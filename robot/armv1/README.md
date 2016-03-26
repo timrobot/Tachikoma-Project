@@ -1,5 +1,5 @@
 TODO:
 - write FK (complete)
-- write IK (not complete, but doesn't have to be)
+- write IK (complete, still stupid, make monte carlo)
 - write arduino code for the first arduino (complete)
-- write arduino code for the second arduino (not complete)
+- write arduino code for the second arduino (complete)

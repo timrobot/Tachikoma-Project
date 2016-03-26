@@ -114,7 +114,7 @@ arma::mat rgb2gray(const arma::cube &image);
  *  @param the grayscale image
  *  @return the rgb image
  */
-arma::cube gray2rgb(const arma::mat &image);
+arma::cube gray2rgb(const arma::mat &image, int n_slices = 3);
 
 #else
 

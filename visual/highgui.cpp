@@ -317,8 +317,8 @@ arma::mat rgb2gray(const arma::cube &image) {
   return new_image;
 }
 
-arma::cube gray2rgb(const arma::mat &image) {
-  arma::cube new_image(image.n_rows, image.n_cols, 3);
+arma::cube gray2rgb(const arma::mat &image, int n_slices) {
+  arma::cube new_image(image.n_rows, image.n_cols, n_slices);
   for (arma::uword i = 0; i < new_image.n_slices; i++) {
     new_image.slice(i) = image;
   }

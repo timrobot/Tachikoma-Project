@@ -1,39 +1,23 @@
 CXX = g++
-CFLAGS = -std=c++11 -I/usr/local/include
+CFLAGS = -std=c++11 -O3 `pkg-config --cflags opencv`
+VISUAL = $(shell pwd)/..
+INCLUDE = -I/usr/local/include -I$(VISUAL)
 LIBS = -L/usr/local/lib \
-			 -lopencv_core \
-			 -lopencv_highgui \
-			 -lopencv_imgproc \
-			 -lopencv_videoio \
-			 -lopencv_imgcodecs \
-			 -lopencv_calib3d \
-			 -lopencv_features2d \
-			 -lopencv_xfeatures2d \
-			 -lopencv_flann \
-			 -lopencv_line_descriptor \
-			 -lopencv_stitching \
-			 -larmadillo
-OBJS = highgui.o imgproc.o draw.o feature.o
+       `pkg-config --libs opencv` \
+       -larmadillo
+OBJS = $(VISUAL)/highgui.o $(VISUAL)/imgproc.o $(VISUAL)/draw.o $(VISUAL)/feature.o
 
-all: test
+all: visual_dir $(OBJS) test
 
-feature.o: feature.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
-
-highgui.o: highgui.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
-
-imgproc.o: imgproc.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
-
-draw.o: draw.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
-
-test.o: test.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
+visual_dir:
+	make -C $(VISUAL)
 
 test: $(OBJS) test.o
-	$(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
+	$(CXX) $(CFLAGS) -o $@ $^ $(INCLUDE) $(LIBS)
+
+%.o: %.cpp
+	$(CXX) $(CFLAGS) -o $@ -c $< $(INCLUDE)
 
 clean:
-	rm -f *.o $(OBJS) test
+	rm -f *.o test
+	make clean -C $(VISUAL)
