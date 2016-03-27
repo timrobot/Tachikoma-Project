@@ -15,9 +15,12 @@ visual_dir:
 test: $(OBJS) test.o
 	$(CXX) $(CFLAGS) -o $@ $^ $(INCLUDE) $(LIBS)
 
+train: $(OBJS) train.o
+	$(CXX) $(CFLAGS) -o $@ $^ $(INCLUDE) $(LIBS)
+
 %.o: %.cpp
 	$(CXX) $(CFLAGS) -o $@ -c $< $(INCLUDE)
 
 clean:
-	rm -f *.o test
+	rm -f *.o test train
 	make clean -C $(VISUAL)

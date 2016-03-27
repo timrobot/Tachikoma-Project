@@ -1,0 +1,14 @@
+{
+  "train_images": [
+    "handicap_sign"
+  ],
+  "handicap_sign": [
+    "train_images/001_240.jpg",
+    "train_images/002_240.jpg",
+    "train_images/003_240.jpg",
+    "train_images/004_240.jpg",
+    "train_images/005_240.jpg",
+    "train_images/006_240.jpg",
+    "train_images/007_240.jpg"
+  ]
+}
