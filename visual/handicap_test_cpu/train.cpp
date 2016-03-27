@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
   cout << "use the feature extractor on the images" << endl;
   for (Mat &image : training_images) {
     Mat gray;
-    cvtColor(image, gray, COLOR_GRAY2BGR);
+    cvtColor(image, gray, COLOR_BGR2GRAY);
     detector->detect(gray, keypoints);
     detector->compute(gray, keypoints, description);
     features.push_back(description);

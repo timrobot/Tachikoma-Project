@@ -79,6 +79,24 @@ void disp_everything(vector<cube> images, string prefix) {
   }
 }
 
+vector<cube> crop_circles(cube image, mat circles) {
+  vector<cube> cropped;
+  for (int j = 0; j < (int)circles.n_cols; j++) {
+    Mat circle_template(ceil(circles(2)) * 2, ceil(circles(2)) * 2, CV_8UC3);
+    circle_template = Scalar(0, 0, 0);
+    circle(circle_template, Point2f(ceil(circles(2)), ceil(circles(2))), ceil(circles(2)), Scalar(255, 255, 255), -1);
+    cube mask = cvt_opencv2arma(circle_template);
+    int minx = circles(0) - (int)mask.n_rows/2;
+    int maxx = minx + (int)mask.n_cols;
+    int miny = circles(1) - (int)mask.n_cols/2;
+    int maxy = miny + (int)mask.n_rows;
+    cube partial_cube = cube(span(miny, maxy), span(minx, maxx), span::all);
+    partial_cube = partial_cube % mask;
+    cropped.push_back(partial_cube);
+  }
+  return cropped;
+}
+
 int main(int argc, char *argv[]) {
   // read in the input
   if (argc != 2) {
