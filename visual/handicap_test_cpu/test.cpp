@@ -6,9 +6,11 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <njson/json>
 
 using namespace arma;
 using namespace std;
+using namespace json = nlohmann::json;
 
 vector<mat> blur_multiple(mat &image, vector<double> &convsigmas) {
   vector<mat> ans;
@@ -82,19 +84,35 @@ void disp_everything(vector<cube> images, string prefix) {
 vector<cube> crop_circles(cube image, mat circles) {
   vector<cube> cropped;
   for (int j = 0; j < (int)circles.n_cols; j++) {
-    Mat circle_template(ceil(circles(2)) * 2, ceil(circles(2)) * 2, CV_8UC3);
-    circle_template = Scalar(0, 0, 0);
-    circle(circle_template, Point2f(ceil(circles(2)), ceil(circles(2))), ceil(circles(2)), Scalar(255, 255, 255), -1);
-    cube mask = cvt_opencv2arma(circle_template);
-    int minx = circles(0) - (int)mask.n_rows/2;
-    int maxx = minx + (int)mask.n_cols;
-    int miny = circles(1) - (int)mask.n_cols/2;
-    int maxy = miny + (int)mask.n_rows;
-    cube partial_cube = cube(span(miny, maxy), span(minx, maxx), span::all);
-    partial_cube = partial_cube % mask;
+    printf("drawing %d\n", j);
+    vec circp = circles.col(j);
+    cout << circp << endl;
+    cv::Mat circle_template(ceil(circp(2)) * 2, ceil(circp(2)) * 2, CV_8UC3);
+    circle_template = cv::Scalar(0, 0, 0);
+    circle(circle_template, cv::Point2f(ceil(circp(2)), ceil(circp(2))), ceil(circp(2)), cv::Scalar(255, 255, 255), -1);
+    cube mask = cvt_opencv2arma(circle_template) / 255;
+    int minx = max(vec({floor(circp(0)) - ceil(mask.n_rows/2), 0}));
+    int maxx = min(vec({minx + (double)mask.n_cols, (double)image.n_cols}));
+    int miny = max(vec({floor(circp(1)) - ceil(mask.n_cols/2), 0}));
+    int maxy = min(vec({miny + (double)mask.n_rows, (double)image.n_rows}));
+    cube partial_cube = image(span(miny, maxy-1), span(minx, maxx-1), span::all);
+    partial_cube = partial_cube % mask(span(0,maxy-miny-1), span(0,maxx-minx-1), span::all);
     cropped.push_back(partial_cube);
   }
   return cropped;
+}
+
+Ptr<SVM> load_classifier(string s, string config_file) {
+  FileStorage fs(s, FileStorage::READ);
+  string params, temp;
+  ifstream params_file(config_file);
+  while (getline(params_file, temp)) {
+    params += temp;
+  }
+  params_file.close();
+  json config = json::parse(params);
+  
+  Ptr<SVM> classifier = SVM::create();
 }
 
 int main(int argc, char *argv[]) {
@@ -104,7 +122,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   printf("rgb2gray\n");
-  mat image = rgb2gray(load_image(argv[1]));
+  cube rgbimage = load_image(argv[1]);
+  mat image = rgb2gray(rgbimage);
 
   // try to get the handicap signs using multiplle convolution stages
   vector<double> blvls = { 0.3, 0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.9 };
@@ -133,12 +152,24 @@ int main(int argc, char *argv[]) {
   vector<cube> rgbedges = gray2rgb_multiple(edges);
 
   // draw them out
-  printf("disp\n");
+  /*printf("disp\n");
   disp_everything(rgbedges, "edges");
   disp_wait();
   printf("disp\n");
   disp_everything(circles, "circles");
+  disp_wait();*/
+
+  mat circleht(3, 0);
+  for (mat &m : ht) {
+    circleht = join_rows(circleht, m);
+  }
+  vector<cube> cropped = crop_circles(rgbimage, circleht);
+  for (int i = 0; i < cropped.size(); i++) {
+    disp_image("cd " + to_string(i), cropped[i]);
+  }
   disp_wait();
+
+  Ptr<SVM> classifier = load_classifier("desc.yml");
 
   return 0;
 }

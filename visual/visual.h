@@ -13,18 +13,18 @@ namespace visual {
   KinectDevice *_kinect;
   KinectDevice2 *_kinect2;
   thread *videoCapThread;
-  mutex *videoCapLock;
+  mutex videoCapLock;
   bool keepRunning;
 
-  /** Initialize the visual space
+  /** Start the visual space
    */
-  int init(bool use_single_cam = true,
-           bool use_kinectv1 = false,
-           bool use_kinectv2 = false);
+  int start(bool use_single_cam = true,
+            bool use_kinectv1 = false,
+            bool use_kinectv2 = false);
 
-  /** Destroy the visual space
+  /** Stop the visual space
    */
-  void destroy(void);
+  void stop(void);
 
   /** Check to see if the camera has been initialized
    *  @return true if a camera was found, else false
@@ -48,7 +48,7 @@ namespace visual {
 
   /** A runnable thread for the visual system
    */
-  void __run__(void);
+  void run(void);
 
 }
 

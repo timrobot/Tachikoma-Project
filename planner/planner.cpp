@@ -1,9 +1,8 @@
 #include "planner.h"
-#include "visual/visual.h"  // for vision
-#include "speech/speech.h"  // for audio
-#include "robot/robot.h"    // for robot movement and touch
-#include "slam/slam.h"      // for localization
-#include "manual.h"
+#include "visual/visual.h"          // for vision
+#include "robot/baserobot.h"        // for robot movement and touch
+#include "slam/particle_filter.h"   // for localization
+#include "astar/astar.h"
 
 int planner::init(BaseRobot *robot, bool en) {
   body = robot;
@@ -35,8 +34,7 @@ void planner::run(void) {
     //    DANGEROUS    //
     /////////////////////
     if (autonomousEnable) {
-      // do nothing for now, this is where the autonomous section is
-      // create a motion list later on, but this will have to be strange
+      // in here, grab the feature space which we want
     } else {
       // manual control
       manual_input::update(); // autoconnect

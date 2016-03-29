@@ -137,9 +137,9 @@ int main() {
     robot.move((strafe_right - strafe_left) * 4, (forward - backward) * 4, (turn_left - turn_right) * .1);
     pf.move((strafe_right - strafe_left) * 4, (forward - backward) * 4, (turn_left - turn_right) * .1);
     mat sensor_values = lidar.sense();
-    //mat tag_landmarks;
-    //sim_tag_extract(tag_landmarks, sensor_values, landmarks, robot, map);
-    //pf.observe(tag_landmarks);
+    mat tag_landmarks;
+    sim_tag_extract(tag_landmarks, sensor_values, landmarks, robot, map);
+    pf.observe(tag_landmarks);
 
     // predict the position
     vec mu;

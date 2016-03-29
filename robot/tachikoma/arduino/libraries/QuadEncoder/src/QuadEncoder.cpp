@@ -1,3 +1,4 @@
+#include "Arduino.h"
 #include "QuadEncoder.h"
 
 QuadEncoder::QuadEncoder(void) {
@@ -43,8 +44,8 @@ void QuadEncoder::update(void) {
     digitalRead(this->pin[1]) == HIGH
   };
   char delta_state[2] = {
-    this->new_state[0] != this->pin_state[0],
-    this->new_state[1] != this->pin_state[1]
+    new_state[0] != this->pin_state[0],
+    new_state[1] != this->pin_state[1]
   };
   if (delta_state[0] && delta_state[1]) {
     this->pos += this->velocity * 2 * (this->reversed ? -1 : 1);

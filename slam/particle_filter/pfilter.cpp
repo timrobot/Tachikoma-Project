@@ -7,26 +7,9 @@
 using namespace arma;
 using namespace std;
 
-static double erfinv(double p) {
-  // approximate maclaurin series (refer to http://mathworld.wolfram.com/InverseErf.html)
-  double sqrt_pi = sqrt(M_PI);
-  vec a = {
-    0.88623,
-    0.23201,
-    0.12756,
-    0.086552
-  };
-  vec x(a.n_elem);
-  for (int i = 0; i < x.n_elem; i++) {
-    x(i) = pow(p, 2 * i + 1);
-  }
-  return dot(a,x);
-}
-
-static double gaussianNoise(double sigma) {
-  double p = (double)rand() / ((double)RAND_MAX / 2) - 1;
-  return erfinv(p) * sigma;
-}
+static double erfinv(double p);
+static double gaussianNoise(double sigma);
+static double gauss(double mu, double sigma2);
 
 /** This is the constructor for the particle filter (think of it as your init)
  *  @param nparticles the number of particles to create
@@ -109,18 +92,14 @@ void pfilter::move(double vx, double vy, double w) {
   }
 }
 
-double gauss(double mu, double sigma2) {
-  return 1 / sqrt(2 * M_PI * sigma2) * exp(-0.5 * (mu * mu) / sigma2);
-}
-
 /** Weigh the "health" of each particle using gaussian error
  *  @param observations a 3xn matrix, where the first row is the x row,
  *                      and the second row is the y row
  *  @param health the health vector
  */
 void pfilter::weigh(mat &observations) {
-  vec theta = vec(observations.size());
-  vec radius(observations.size());
+  vec theta = vec(observations.n_cols);
+  vec radius(observations.n_cols);
   vec R(observations.n_cols);
   vec T(observations.n_cols);
   for (int i = 0; i < (int)landmarks.size(); i++) {
@@ -157,12 +136,12 @@ void pfilter::resample(void) {
   double mw = (max(health));
   for (int i = 0; i < N; i++){
     beta += ((double)rand() / (double)RAND_MAX) * 2 * mw;
-    while (beta >= health[index]){
+    while (beta >= health[index]) {
       if (beta == 0) {
         break;
       }
       beta -= health[index];
-      index=(index+1)%N;
+      index = (index + 1) % N;
     }
     p2.push_back(particles[index]);
   }
@@ -175,7 +154,7 @@ void pfilter::resample(void) {
  */
 void pfilter::observe(mat observations) {
   // each column of obs matches to each col of landmarks
-  health=ones<vec>(particles.size());
+  health = ones<vec>(particles.size());
   weigh(observations);
 }
 
@@ -198,6 +177,9 @@ void pfilter::predict(vec &mu, mat &sigma) {
   sigma /= this->particles.size();
 }
 
+/** Blit all the particles onto the screen
+ *  @param screen the screen to blit the particles onto
+ */
 void pfilter::blit(icube &screen) {
   // DO NOT TOUCH THIS FUNCTION
   vec health;
@@ -218,4 +200,29 @@ void pfilter::blit(icube &screen) {
     }
     i++;
   }
+}
+
+static double erfinv(double p) {
+  // approximate maclaurin series (refer to http://mathworld.wolfram.com/InverseErf.html)
+  double sqrt_pi = sqrt(M_PI);
+  vec a = {
+    0.88623,
+    0.23201,
+    0.12756,
+    0.086552
+  };
+  vec x(a.n_elem);
+  for (int i = 0; i < x.n_elem; i++) {
+    x(i) = pow(p, 2 * i + 1);
+  }
+  return dot(a,x);
+}
+
+static double gaussianNoise(double sigma) {
+  double p = (double)rand() / ((double)RAND_MAX / 2) - 1;
+  return erfinv(p) * sigma;
+}
+
+static double gauss(double mu, double sigma2) {
+  return 1 / sqrt(2 * M_PI * sigma2) * exp(-0.5 * (mu * mu) / sigma2);
 }

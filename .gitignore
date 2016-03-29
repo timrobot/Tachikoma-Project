@@ -5,3 +5,6 @@
 .so
 sim
 test
+.*.swp
+*.swp
+.swp
