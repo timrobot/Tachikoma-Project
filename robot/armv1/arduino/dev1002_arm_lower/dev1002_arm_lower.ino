@@ -12,7 +12,7 @@
 #define CSENSE2   A3
 
 Adafruit_MotorShield AFMS_base_pivot1(0x60);
-Adafruit_MotorShield AFMS_base_pivot2(0x61);
+Adafruit_MotorShield AFMS_base_pivot2(0x62);
 Adafruit_DCMotor *motors[8];
 const int chassis = 0;
 const int shoulder = 1;
@@ -65,7 +65,7 @@ void setmotors(int vv[]) {
   }
   bool isneg[2];
   // this only applies to the motors on the shields
-  int rev[4] = { 0, 0, 1, 1, 1, 1, 0, 0 };
+  int rev[8] = { 0, 0, 1, 1, 0, 0, 1, 1 };
 
   isneg[chassis] = v[chassis] < 0;
   v[chassis] = limit(abs(v[chassis]), 0, 255);
@@ -74,10 +74,10 @@ void setmotors(int vv[]) {
 
   int speeds[8] = {
     v[shoulder], v[shoulder], v[shoulder], v[shoulder],
-    v[chassis], v[chassis], 0, 0 };
+    0, 0, v[chassis], v[chassis]};
   int isneg2[8] = {
     isneg[shoulder], isneg[shoulder], isneg[shoulder], isneg[shoulder],
-    isneg[chassis], isneg[chassis], 0, 0 };
+    0, 0, isneg[chassis], isneg[chassis]};
 
   for (int i = 0; i < 8; i++) {
     motors[i]->setSpeed(speeds[i]);
@@ -204,7 +204,7 @@ void loop() {
   int deltav[2] = { limit(vel[chassis] - pvel[chassis], -8, 8),
                     limit(vel[shoulder] - pvel[shoulder], -8, 8) };
   int v[2];
-  v[chassis] = limit(pvel[chassis] + deltav[chassis], -172, 172);
+  v[chassis] = limit(pvel[chassis] + deltav[chassis], -255, 255);
   v[shoulder] = limit(pvel[shoulder] + deltav[shoulder], -172, 172);
   
   // push the values to the motors
