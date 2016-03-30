@@ -23,7 +23,7 @@ static vector<MotionAction> getNextAction(MotionAction currAction, imat &map);
  *  @param map This is the map which you are given
  *  @param goal This is the goal of the robot
  */
-AStar::AStar(imat map, ivec &goal, AStarProp prop) :
+AStar::AStar(imat map, vec &goal, AStarProp prop) :
     isComplete(false),
     isImpossible(false),
     goal(goal),
@@ -41,11 +41,11 @@ AStar::~AStar(void) {
  *  computing the cost and placing the state that was traversed
  *  into the search space
  */
-void AStar::compute(ivec &start, vector<MotionAction> &path) {
+void AStar::compute(vec &start, vector<MotionAction> &path) {
   this->isComplete = false;
   this->isImpossible = false;
 
-  MotionAction start_state(start(0), start(1));
+  MotionAction start_state(this->goal(0), this->goal(1)); // changed to backward
   Heap<MotionAction> opened;
   opened.push(start_state, sum(abs(start - goal)));
 
@@ -62,16 +62,16 @@ void AStar::compute(ivec &start, vector<MotionAction> &path) {
 
     closed(x, y) = true;
     // if this state is the goal state, then return the path
-    if (x == this->goal(0) && y == this->goal(1)) {
+    if (x == start(0) && y == start(1)) { // changed to backward
       path.clear();
-      while (x != start(0) || y != start(1)) {
+      while (x != this->goal(0) || y != this->goal(1)) { // changed to backward
         path.push_back(curr);
         curr = getPreviousAction(curr, backtrace);
         x = curr.x;
         y = curr.y;
       }
       path.push_back(curr);
-      reverse(path.begin(), path.end());
+      //reverse(path.begin(), path.end());
       this->isComplete = true;
       return;
     }
@@ -82,9 +82,9 @@ void AStar::compute(ivec &start, vector<MotionAction> &path) {
       y = action.y;
       if (!backtrace(x, y) && !closed(x, y)) {
         backtrace(x, y) = action.id;
-        assert(action.id != 0);
-        // manhattan distance
-        double hcost = action.gcost + sum(abs(action.pos - this->goal));
+        assert(action.id != 0); // just in case
+        // euclidean distance
+        double hcost = action.gcost + sqrt(dot(action.pos - goal, action.pos - goal));
         opened.push(action, hcost);
       }
     }
@@ -141,14 +141,18 @@ static vector<MotionAction> getNextAction(MotionAction currAction, imat &map) {
   vector<enum ActionId> neighborActions = { MOVE_FORWARD, MOVE_BACKWARD, MOVE_LEFT, MOVE_RIGHT };
   vector<MotionAction> actionlist;
   for (int i = 0; i < 4; i++) {
-    MotionAction action(currAction.x + neighbor4(0, i), currAction.y + neighbor4(1, i));
+    MotionAction action(currAction.x + neighbor4(0, i), currAction.y + neighbor4(1, i), neighborActions[i]);
     // check feasibility of the action
-    if (action.x >= map.n_cols || action.y >= map.n_rows || map(action.x, action.y) > 0.5) {
+    if (action.x >= map.n_cols || action.y >= map.n_rows ||
+        map(action.x, action.y) > 0.5) {
       continue;
     }
-    action.cost = 1;
+    bool h1 = currAction.id == MOVE_LEFT || currAction.id == MOVE_RIGHT;
+    bool v1 = currAction.id == MOVE_FORWARD || currAction.id == MOVE_BACKWARD;
+    bool h2 = action.id == MOVE_LEFT || currAction.id == MOVE_RIGHT;
+    bool v2 = action.id == MOVE_FORWARD || currAction.id == MOVE_BACKWARD;
+    action.cost = ((h1 && v2) || (v1 && h2)) ? 2 : (action.id != currAction.id ? 3 : 1); // have this cost function take into account the pose difference
     action.gcost = currAction.gcost + action.cost;
-    action.id = neighborActions[i];
     actionlist.push_back(action);
   }
   return actionlist;

@@ -58,22 +58,24 @@ void run_map(imat map) {
   blitRGB(screen, pathmap);
   sim_window::update();
   SDL_Delay(t_delay * 5);
+  sim_window::update();
 
   // grab the start and goal positions
   bool isSame = 1;
-  ivec start;
-  ivec goal;
-  while(isSame) {
+  vec start;
+  vec goal;
+  while (isSame) {
     printf("Waiting for point 1\n");
-    start = getClickedPoint();
+    ivec temp = getClickedPoint();
+    start = vec({ (double)temp(0), (double)temp(1) });
 
     printf("Waiting for point 2\n");
-    goal = getClickedPoint();
+    temp = getClickedPoint();
+    goal = vec({ (double)temp(0), (double)temp(1) });
 
     if (start(0) == goal(0) && start(1) == goal(1)) {
       printf("You clicked on the same point twice. Please pick two different points.\n");
-    }
-    else {
+    } else {
       isSame = 0;
     }
   }
@@ -81,16 +83,18 @@ void run_map(imat map) {
   // compute the path
   AStar astar(map, goal);
   vector<MotionAction> path;
-  astar.compute(start, path);
-  if (astar.impossible()) {
-    printf("It is impossible!\n");
-    return;
-  }
-  vector<ivec> pathpos;
-  for (MotionAction &action : path) {
-    cout << action << endl;
-    pathpos.push_back(ivec({ (int)action.x, (int)action.y }));
-  }
+  while (sum(abs(start - goal)) != 0) {
+    astar.compute(start, path);
+    if (astar.impossible()) {
+      printf("It is impossible!\n");
+      return;
+//  } else {
+//    printf("found a path: %zu\n", path.size());
+    }
+    vector<ivec> pathpos;
+    for (MotionAction action : path) {
+      pathpos.push_back(ivec({ (int)action.x, (int)action.y }));
+    }
   
   // compute the interpolation
   // lookahead requires bounds
@@ -109,7 +113,15 @@ void run_map(imat map) {
   }*/
 
   // draw it out
-  drawPath(pathmap, pathpos);
+    drawPath(pathmap, pathpos);
+    drawBot(pathmap, start(0), start(1));
+    blitRGB(screen, pathmap);
+    sim_window::update();
+
+    SDL_Event *e;
+    while ((e = sim_window::get_event()));
+    start = vec({ path[1].x, path[1].y }); // this should be updated from the real robot
+  }
   drawBot(pathmap, start(0), start(1));
   blitRGB(screen, pathmap);
   sim_window::update();
@@ -178,7 +190,7 @@ int main(int argc, char *argv[]) {
   setLineThickness(0);
   screen = sim_window::init(getGridWidth(maze.n_cols), getGridHeight(maze.n_rows));
   run_map(maze);
-  sleep(3);
+  sleep(5);
   sim_window::destroy();
 
   return 0;

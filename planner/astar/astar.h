@@ -27,15 +27,15 @@ class AStarProp {
 
 class AStar {
   public:
-    AStar(arma::imat map, arma::ivec &goal,
+    AStar(arma::imat map, arma::vec &goal,
       AStarProp prop = AStarProp(F_FORWARD, G_MAX, H_EUCLIDEAN, false));
     ~AStar(void);
-    void compute(arma::ivec &start, std::vector<MotionAction> &path);
+    void compute(arma::vec &start, std::vector<MotionAction> &path);
     bool complete(void);
     bool impossible(void);
 
     arma::imat map;
-    arma::ivec goal;
+    arma::vec goal;
 
     // stuff for the decision making capability
 	  bool isComplete;
