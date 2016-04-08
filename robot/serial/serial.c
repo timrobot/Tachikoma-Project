@@ -18,7 +18,7 @@ static const char *PREFIXES[] = {
 
 static int _serial_setattr(serial_t *connection);
 static void _serial_update(serial_t *connection);
-static char tempbuf[SWREADMAX];
+static char tempbuf[SWBUFMAX];
 
 /** Connect to a serial device.
  *  @param connection
