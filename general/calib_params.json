@@ -19,12 +19,6 @@
 			"max_pos":90,
 		},
 		"pivot4": {
-			"min_enc":100,
-			"max_enc":930,
-			"min_pos":-90,
-			"max_pos":90,
-		},
-		"pivot5": {
 			"min_enc":600,
 			"max_enc":950,
 			"min_pos":0,

@@ -109,19 +109,12 @@ int main()
 	// start up the threads
 	printf("[main] start up the threads\n");
 	tachikoma.connect();
-	printf("1\n");
 	thread manual_thread(manual_input);
-	printf("2\n");
 	thread chilicamthread(chilicamdetect_thread);
-	printf("3\n");
 	thread chili_thread(chilitag_detect);
-	printf("4\n");
 	thread pose_thread(localize_pose);
-	printf("5\n");
 	thread path_thread(motion_plan);
-	printf("6\n");
 	thread robot_thread(robot_calcmotion);
-	printf("7\n");
 	thread display_thread(display_interface);
 
 	// wait until program closes
