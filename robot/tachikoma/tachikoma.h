@@ -10,195 +10,229 @@
 #include "baserobot.h"
 
 // General Definitions //
-#define NUM_LEGS    4
-#define NUM_JOINTS  2
-#define WAIST       0
-#define THIGH       1
-#define WHEELS      2
-#define UL          0
-#define UR          1
-#define DL          2
-#define DR          3
+#define DOF					4
+#define PIVOT1			0
+#define PIVOT2			1
+#define PIVOT3			2
+#define PIVOT4			3
+#define NUM_LEGS		4
+#define NUM_JOINTS	2
+#define WAIST				0
+#define THIGH				1
+#define UL					0
+#define UR					1
+#define DL					2
+#define DR					3
 
 // Device Ids //
-#define NUM_DEV     10
-#define WAIST_UP    1
-#define WAIST_DOWN  2
-#define THIGH_UL    3
-#define THIGH_UR    4
-#define THIGH_DL    5
-#define THIGH_DR    6
-#define WHEEL_UL    7
-#define WHEEL_UR    8
-#define WHEEL_DL    9
-#define WHEEL_DR    10
-
-// Coalesced Matrix Indeces (Don't use) //
-#define WAIST_POS   0
-#define THIGH_POS   1
-#define WHEEL_VEL   2
-#define WAIST_VEL   3
-#define THIGH_VEL   4
+#define NUM_DEV			6
+#define FRONT_LEFT	1
+#define FRONT_RIGHT	2
+#define BACK_LEFT		3
+#define BACK_RIGHT	4
+#define ARM_DEV1		5
+#define ARM_DEV2		6
 
 class Tachikoma : public BaseRobot {
-  public:
-    /** Constructor
-     */
-    Tachikoma(void);
+	public:
+		/** Constructor
+		 */
+		Tachikoma(void);
 
-    /** Deconstructor
-     */
-    ~Tachikoma(void);
+		/** Deconstructor
+		 */
+		~Tachikoma(void);
 
-    /** Try to connect to the robot and start a thread for the device update
-     *  @return true if successful, false otherwise
-     */
-    bool connect(void);
+		/** Try to connect to the robot and start a thread for the device update
+		 *	@return true if successful, false otherwise
+		 */
+		bool connect(void);
 
-    /** Detect if the tachikoma is connected to all ports or not
-     *  @return true if all ports are connected, false otherwise
-     */
-    bool connected(void);
+		/** Detect if the tachikoma is connected to all ports or not
+		 *	@return true if all ports are connected, false otherwise
+		 */
+		bool connected(void);
 
-    /** Detect the number of devices that are connected to the Tachikoma
-     *  @return the number of ports that are connected
-     */
-    int numconnected(void);
+		/** Detect the number of devices that are connected to the Tachikoma
+		 *	@return the number of ports that are connected
+		 */
+		int numconnected(void);
 
-    /** Disconnect from all devices
-     */
-    void disconnect(void);
+		/** Disconnect from all devices
+		 */
+		void disconnect(void);
 
-    /** Send vectors of values to the microcontrollers
-     *  @param leg_theta a 3x4 matrix representing the motion positions
-     *  @param leg_vel a 3x4 matrix representing the motion velocities
-     *  @param wheels a 4x1 vector representing the wheel velocities
-     *  @param arm_theta a ?x2 matrix representing the arm positions
-     *  @param leg_theta_act (optional) a boolean representing the position enable
-     *  @param leg_vel_act (optional) a boolean representing the velocity enable
-     */
-    void send(
-        const arma::mat &leg_theta,
-        const arma::mat &leg_vel,
-        const arma::vec &wheels,
-        bool leg_theta_act = false,
-        bool leg_vel_act = true);
+		/** Reset the robot's default values
+		 */
+		void reset(void);
 
-    /** Receive a matrix of sensor values from the legs, indicating (for now) angles and touch
-     *  @param leg_sensors a generic 4x4 matrix representing the theta and distances of the legs
-     *  @param leg_feedback a generic 4x4 matrix representing the vectors of the motors
-     *  @return for compatability, returns a vector of all sensor values
-     */
-    arma::vec recv(
-        arma::mat &leg_sensors,
-        arma::mat &leg_feedback);
+		/** Send vectors of values to the microcontrollers
+		 *	@param arm_pos { pivot1, pivot2, pivot3, pivot4, claw } positions
+		 *	@param arm_vel { pivot1, pivot2, pivot3, pivot4, claw } velocities
+		 *	@param leg_pos 4x2 matrix of positions [legid][jointid]
+		 *	@param leg_vel 4x2 matrix of velocities [legid][jointid]
+		 *	@param wheel_vel 4x1 vector of velocities [legid]
+		 *	@param arm_pos_act (optional) enable the arm position
+		 *	@param arm_vel_act (optional) enable the arm velocity
+		 *	@param leg_pos_act (optional)	enable the leg position
+		 *	@param leg_vel_act (optional) enable the leg velocity
+		 *	@param wheel_vel_act (optional) enable the wheel velocity
+		 */
+		void send(
+				arma::vec arm_pos,		// 4x1 vector
+				arma::vec arm_vel,		// 4x1 vector
+				arma::mat leg_pos,		// 4x2 matrix
+				arma::mat leg_vel,		// 4x2 matrix
+				arma::vec wheel_vel,	// 4x1 vector
+				bool arm_pos_act = false,
+				bool arm_vel_act = false,
+				bool leg_pos_act = false,
+				bool leg_vel_act = false,
+				bool wheel_vel_act = false);
 
-    /** Reset the robot's default values
-     */
-    void reset(void);
+		/** Receive a matrix of sensor values from the legs, indicating (for now) angles and touch
+		 */
+		void recv(
+				arma::vec &arm_pos,
+				arma::vec &arm_vel,
+				arma::mat &leg_pos,
+				arma::mat &leg_vel,
+				arma::vec &wheel_pos,
+				arma::vec &wheel_vel);
 
-    /** Set the calibration parameters for the robot
-     *  @param filename a name of a file
-     *  @param cp the calibration parameters
-     */
-    bool set_calibration_params(const std::string &filename);
-    void set_calibration_params(nlohmann::json cp);
+		/** Set the calibration parameters for the robot
+		 *	@param filename a name of a file
+		 *	@param cp the calibration parameters
+		 */
+		void load_calibration_params(const std::string &filename);
+		void set_calibration_params(nlohmann::json cp);
 
-    /** Detect if a robot has been calibrated
-     *  @return true if calibration parameters are found, false otherwise
-     */
-    bool calibrated(void);
+		/** Detect if a robot has been calibrated
+		 *	@return true if calibration parameters are found, false otherwise
+		 */
+		bool calibrated(void);
 
-    /** Solve the xyz coordinate of the leg using forward kinematics
-     *  @param waist, thigh, knee
-     *    the current encoder value vector (waist, thigh, knee)
-     *  @param legid
-     *    the id the leg to solve for
-     *  @return the position vector (x, y, z)
-     */
-    arma::vec leg_fk_solve(const arma::vec &enc, int legid);
+		/** Solve the xyz coordinate of the leg using forward kinematics
+		 *	@param waist, thigh, knee
+		 *		the current encoder value vector (waist, thigh, knee)
+		 *	@param legid
+		 *		the id the leg to solve for
+		 *	@return the position vector (x, y, z)
+		 */
+		arma::vec leg_fk_solve(const arma::vec &enc, int legid);
 
-    /** Solve the encoder values of the legs given a target
-     *  @param pos
-     *    the target position vector (x, y, z)
-     *  @param enc
-     *    the current encoder value vector (waist, thigh, knee)
-     *  @param legid
-     *    the id the leg to solve for
-     *  @return the differential encoder vector (dx, dy, dz)
-     */
-    arma::vec leg_ik_solve(const arma::vec &pos, const arma::vec &enc, int legid);
+		/** Solve the encoder values of the legs given a target
+		 *	@param pos
+		 *		the target position vector (x, y, z)
+		 *	@param enc
+		 *		the current encoder value vector (waist, thigh, knee)
+		 *	@param legid
+		 *		the id the leg to solve for
+		 *	@return the differential encoder vector (dx, dy, dz)
+		 */
+		arma::vec leg_ik_solve(const arma::vec &pos, const arma::vec &enc, int legid);
 
-    /** threaded versions of send and recv
-     */
-    void move(
-        const arma::mat &leg_theta,
-        const arma::mat &leg_vel,
-        const arma::vec &wheels,
-        bool leg_theta_act = false,
-        bool leg_vel_act = true);
-    void sense(
-        arma::mat &leg_sensors,
-        arma::mat &leg_feedback);
+		/** easier than send/recv
+		 */
+		void set_arm(
+				double pivot1_pos,
+				double pivot2_pos,
+				double pivot3_pos,
+				double grab_pos);
+		void move_arm(
+				double pivot1_vel,
+				double pivot2_vel,
+				double pivot3_vel,
+				double grab_vel);
+		void stop_arm(void);
+		void set_legs(
+				double top_left_waist_pos,
+				double top_right_waist_pos,
+				double bottom_left_waist_pos,
+				double bottom_right_waist_pos,
+				double top_left_thigh_pos,
+				double top_right_thigh_pos,
+				double bottom_left_thigh_pos,
+				double bottom_right_thigh_pos);
+		void move_legs(
+				double top_left_waist_vel,
+				double top_right_waist_vel,
+				double bottom_left_waist_vel,
+				double bottom_right_waist_vel,
+				double top_left_thigh_vel,
+				double top_right_thigh_vel,
+				double bottom_left_thigh_vel,
+				double bottom_right_thigh_vel);
+		void stop_legs(void);
+		void set_wheels(
+				double top_left_wheel_vel,
+				double top_right_wheel_vel,
+				double bottom_left_wheel_vel,
+				double bottom_right_wheel_vel);
+		void stop_wheels(void);
 
-    /** easier than move
-     */
-    void set_motors(
-        const bool vel_en,
-        const bool pos_en,
-        const double top_left_waist_vel,
-        const double top_right_waist_vel,
-        const double bottom_left_waist_vel,
-        const double bottom_right_waist_vel,
-        const double top_left_thigh_vel,
-        const double top_right_thigh_vel,
-        const double bottom_left_thigh_vel,
-        const double bottom_right_thigh_vel,
-        const double top_left_wheel_vel,
-        const double top_right_wheel_vel,
-        const double bottom_left_wheel_vel,
-        const double bottom_right_wheel_vel,
-        const double top_left_waist_pos,
-        const double top_right_waist_pos,
-        const double bottom_left_waist_pos,
-        const double bottom_right_waist_pos,
-        const double top_left_thigh_pos,
-        const double top_right_thigh_pos,
-        const double bottom_left_thigh_pos,
-        const double bottom_right_thigh_pos);
+		arma::vec get_end_effector_pos(int linkid);
 
-    // updated on recv
-    arma::mat leg_read_pot;
-    arma::mat leg_read_input;
-    arma::vec current_reading;
-    // updated on forward kinematics
-    //arma::mat leg_positions;
-    // parameters
-    arma::mat leg_min;
-    arma::mat leg_max;
-    arma::umat leg_rev;
+	private:
+		// update manager
+		std::thread *uctrl_manager;
+		std::mutex read_lock;
+		std::mutex write_lock;
+		// used for the device update
+		bool manager_running;
+		void update_uctrl(void);
+		void thread_send(
+				arma::vec arm_pos,		// 4x1 vector
+				arma::vec arm_vel,		// 4x1 vector
+				arma::mat leg_pos,		// 4x2 matrix
+				arma::mat leg_vel,		// 4x2 matrix
+				arma::vec wheel_vel,	// 4x1 vector
+				bool arm_pos_act = false,
+				bool arm_vel_act = false,
+				bool leg_pos_act = false,
+				bool leg_vel_act = false,
+				bool wheel_vel_act = false);
+		void thread_recv(
+				arma::vec &arm_pos,
+				arma::vec &arm_vel,
+				arma::mat &leg_pos,
+				arma::mat &leg_vel,
+				arma::vec &wheel_pos,
+				arma::vec &wheel_vel);
 
-  private:
-    // update manager
-    std::thread *uctrl_manager;
-    std::mutex *read_lock;
-    std::mutex *write_lock;
-    // used for the device update
-    bool manager_running;
-    void update_uctrl(void);
-    void update_send(void);
-    void update_recv(void);
+		struct timeval prevwritetime;
+		bool calibration_loaded;
 
-    arma::mat buffered_leg_theta;
-    arma::mat buffered_leg_vel;
-    arma::vec buffered_wheels;
-    bool buffered_leg_theta_act;
-    bool buffered_leg_vel_act;
-    arma::mat buffered_leg_sensors;
-    arma::mat buffered_leg_feedback;
-    struct timeval prevwritetime;
-
-    bool calibration_loaded;
+		// arm defines
+		arma::vec arm_link_length;
+		arma::vec arm_write_pos;
+		arma::vec arm_start_pos;
+		arma::vec arm_write_vel;
+		arma::vec arm_read_pos;
+		arma::vec arm_read_vel;
+		arma::vec arm_min_pos;
+		arma::vec arm_max_pos;
+		arma::vec arm_min_enc;
+		arma::vec arm_max_enc;
+		bool arm_pos_act;
+		bool arm_vel_act;
+		// leg defines
+		arma::mat leg_write_pos;
+		arma::mat leg_start_pos;
+		arma::mat leg_write_vel;
+		arma::mat leg_read_pos;
+		arma::mat leg_read_vel;
+		arma::mat leg_min_pos;
+		arma::mat leg_max_pos;
+		arma::mat leg_min_enc;
+		arma::mat leg_max_enc;
+		bool leg_pos_act;
+		bool leg_vel_act;
+		// wheel defines
+		arma::vec wheel_write_vel;
+		arma::vec wheel_read_pos;
+		arma::vec wheel_read_vel;
+		bool wheel_vel_act;
 };
 
 #endif
