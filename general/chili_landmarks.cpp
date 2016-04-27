@@ -49,10 +49,10 @@ void chili_landmarks::update()
 	// char tagInfo[256];
 
 	// Window to display tracked chilitags
-	// cv::namedWindow("DisplayChilitags");
-	// static const cv::Scalar COLOR(255, 0, 255);
-	// static const int SHIFT = 16;
-	// static const float PRECISION = 1<<SHIFT;
+	cv::namedWindow("DisplayChilitags");
+	static const cv::Scalar COLOR(255, 0, 255);
+	static const int SHIFT = 16;
+	static const float PRECISION = 1<<SHIFT;
 
 	// Main loop, exiting when 'q is pressed'
 	for (int framecount = 0; 'q' != (char) cv::waitKey(1); framecount++)
@@ -74,7 +74,7 @@ void chili_landmarks::update()
 	    // std::memset(tagInfo, 0, 256);
 
 	    // Clone input image to label chilitags on & display
-		// cv::Mat outputImage = inputImage.clone();
+		cv::Mat outputImage = inputImage.clone();
 
 		for (int i=0; i<1024; i++)
 		{
@@ -134,14 +134,14 @@ void chili_landmarks::update()
 			double diagonal_size = sqrt(x_squared + y_squared);
 
 			double distance_inches = 9 * 533.33 / diagonal_size;
-			double x_inches = -delta_x * distance_inches / 533.33;
+			double x_inches = delta_x * distance_inches / 533.33;
 			double y_inches = -delta_y * distance_inches / 533.33;
 			//double z_inches = sqrt(pow(distance_inches, 2) - (pow(x_inches, 2) + pow(y_inches, 2)));
 
 			this->tags[id][0] = 1;
 			this->tags[id][1] = x_inches;
 			this->tags[id][2] = y_inches;
-			this->tags[id][3] = distance_inches;
+//			this->tags[id][3] = distance_inches;
 
 			///////// BEFORE THIS IS GOOD //////////
 
@@ -160,12 +160,12 @@ void chili_landmarks::update()
         // cv::circle(outputImage, cv::Point(320, 240), 15, (0, 0, 0));
 
         // Display chilitags window
-        // cv::imshow("DisplayChilitags", outputImage);
+        cv::imshow("DisplayChilitags", outputImage);
 	}
 
 	// Release all used resources
 	capture.release();
-	// cv::destroyWindow("DisplayChilitags");
+	cv::destroyWindow("DisplayChilitags");
 }
 
 // int main()

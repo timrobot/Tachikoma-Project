@@ -8,7 +8,10 @@ class chili_landmarks
 		~chili_landmarks();
 		void update();
 
-		double tags [1024][3];
+		double tags [1024][4];
+		// tags[id][0] -> is being detected
+		// tags[id][1] -> x distance
+		// tags[id][1] -> y distance
 };
 
 #endif
