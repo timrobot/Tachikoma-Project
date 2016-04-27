@@ -100,11 +100,11 @@ int main()
 		return 1;
 	}
 
-	double initial_x = 75;
-	double initial_y = 60;
+	double initial_x = 96;
+	double initial_y = 24;
 	double initial_t = 90;
 	robot_pose = vec({ initial_x, initial_y, initial_t });
-	globalmap.load("ece_hallway_partial.jpg"); // lower corner is (0,0)
+	globalmap.load("map.png"); // lower corner is (0,0)
 
 	// start up the threads
 	printf("[main] start up the threads\n");
@@ -244,12 +244,13 @@ void chilitag_detect(void)
 	while (!stopsig)
 	{
 		// place the chilitags' positions into a matrix
-		mat sv(4, 20, fill::zeros);
+		mat sv(3, 20, fill::zeros);
 		for (int j = 0; j < 20; j++)
 		{
 			if (chili.tags[j][0] != 0.0)
 			{
-				sv.col(j) = vec({ chili.tags[j][1], chili.tags[j][2], chili.tags[j][3], chili.tags[j][0] });
+				// -y since the image is reversed in camera input
+				sv.col(j) = vec({ chili.tags[j][1], -chili.tags[j][2], chili.tags[j][0] });
 			}
 		}
 
@@ -270,24 +271,24 @@ void chilitag_detect(void)
 void localize_pose(void)
 {
 	// create the landmarks (custom)
-	landmarks.push_back(sim_landmark(8, 240-24));				// 00
-	landmarks.push_back(sim_landmark(8, 480-24));				// 01
-	landmarks.push_back(sim_landmark(8, 720-24));				// 02
-	landmarks.push_back(sim_landmark(8, 960-24));				// 03
-	landmarks.push_back(sim_landmark(8, 1200-24));				// 04
-	landmarks.push_back(sim_landmark(146, 1200-24));			// 05
-	landmarks.push_back(sim_landmark(146, 960-24));				// 06
-	landmarks.push_back(sim_landmark(146, 720-24));				// 07
-	landmarks.push_back(sim_landmark(146, 480-24));				// 08
-	landmarks.push_back(sim_landmark(146, 240-24));				// 09
-	landmarks.push_back(sim_landmark(8, 240));					// 10
-	landmarks.push_back(sim_landmark(8, 480));					// 11
-	landmarks.push_back(sim_landmark(8, 720));					// 12
-	landmarks.push_back(sim_landmark(8, 960));					// 13
-	landmarks.push_back(sim_landmark(8, 1200));					// 14
-	landmarks.push_back(sim_landmark(146, 1200));				// 15
-	landmarks.push_back(sim_landmark(146, 960));				// 16
-	landmarks.push_back(sim_landmark(146, 720));				// 17
+	landmarks.push_back(sim_landmark(96, 24));				// 00
+	landmarks.push_back(sim_landmark(72, 24));				// 01
+	landmarks.push_back(sim_landmark(48, 24));				// 02
+	landmarks.push_back(sim_landmark(96, 48));				// 03
+	landmarks.push_back(sim_landmark(48, 48));				// 04
+	landmarks.push_back(sim_landmark(72, 72));				// 05
+	landmarks.push_back(sim_landmark(24, 72));				// 06
+	landmarks.push_back(sim_landmark(48, 96));				// 07
+	landmarks.push_back(sim_landmark(72, 120));				// 08
+	landmarks.push_back(sim_landmark(24, 120));				// 09
+	landmarks.push_back(sim_landmark(48, 144));				// 10
+	landmarks.push_back(sim_landmark(24, 168));				// 11
+	landmarks.push_back(sim_landmark(48, 168));				// 12
+	landmarks.push_back(sim_landmark(48, 192));				// 13
+	landmarks.push_back(sim_landmark(72, 192));				// 14
+	landmarks.push_back(sim_landmark(24, 216));				// 15
+	landmarks.push_back(sim_landmark(72, 216));				// 16
+	landmarks.push_back(sim_landmark(48, 216));				// 17
 	//landmarks.push_back(sim_landmark(146, 480));				// 18
 	//landmarks.push_back(sim_landmark(146, 240));				// 19
 
@@ -392,7 +393,7 @@ void robot_calcmotion(void)
 		}
 		else if (nwaypoints == 2)
 		{
-			printf("Reached goal, autonomous stopping\n");
+			//printf("Reached goal, autonomous stopping\n");
 			tachikoma.set_wheels(0, 0, 0, 0);
 			continue;
 		}
@@ -420,7 +421,7 @@ void robot_calcmotion(void)
 		{
 			if (target_index >= nwaypoints-1)
 			{
-				printf("target reached\n");
+				//printf("target reached\n");
 				tachikoma.set_wheels(0, 0, 0, 0);
 			}
 			else
@@ -503,7 +504,7 @@ void robot_calcmotion(void)
 
 void motion_plan(void)
 {
-	vec goal = vec({ 73, 1000 }); // this will have to change later somehow
+	vec goal = vec({ 48, 200 }); // this will have to change later somehow
 	// grab the map
 	mat localmap = globalmap.map;
 
