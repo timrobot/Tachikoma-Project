@@ -11,8 +11,8 @@
 #define CURSENSE1 A2
 #define CURSENSE2 A3
 
-Adafruit_MotorShield AFMS_lower_shield(0x61);
-Adafruit_MotorShield AFMS_upper_shield(0x60);
+Adafruit_MotorShield AFMS_lower_shield(0x60);
+Adafruit_MotorShield AFMS_upper_shield(0x62);
 Adafruit_DCMotor *motors[8];
 Encoder wheelenc(2, 3);
 const int waist = 0;
