@@ -235,13 +235,11 @@ void loop() {
 	long encval = wheelenc.read();
 
 	if (millis() - msecs > 50) {
-		sprintf(wbuf, "[%d %d %d %ld %d %d %d %d %d]\n",
+		sprintf(wbuf, "[%d %d %d %ld %d %d %d]\n",
 				DEV_ID,
 				analogRead(POTPIN1),
 				analogRead(POTPIN2),
 				encval,
-				analogRead(CURSENSE1),
-				analogRead(CURSENSE2),
 				pvel[waist],
 				pvel[thigh],
 				pvel[wheel]);
