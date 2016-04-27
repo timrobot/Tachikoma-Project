@@ -244,12 +244,12 @@ void chilitag_detect(void)
 	while (!stopsig)
 	{
 		// place the chilitags' positions into a matrix
-		mat sv(3, 20, fill::zeros);
+		mat sv(4, 20, fill::zeros);
 		for (int j = 0; j < 20; j++)
 		{
 			if (chili.tags[j][0] != 0.0)
 			{
-				sv.col(j) = vec({ chili.tags[j][1], chili.tags[j][2], chili.tags[j][0] });
+				sv.col(j) = vec({ chili.tags[j][1], chili.tags[j][2], chili.tags[j][3], chili.tags[j][0] });
 			}
 		}
 

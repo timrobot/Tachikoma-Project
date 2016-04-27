@@ -102,7 +102,32 @@ void chili_landmarks::update()
 			// Pixel diagonal width = 200 px (P)
 			// Focal length = F = (P x D) / W = 533.3333
 
+			double Z = 60.0; // inches to the ceiling
+
 			double delta_x = center.x - (xRes/2);
+			double delta_y = center.y - (yRes/2);
+
+			double u1 = corners(0).x - delta_x;
+			double u2 = corners(1).x - delta_x;
+			double u3 = corners(2).x - delta_x;
+			double u4 = corners(3).x - delta_x;
+
+			double v1 = corners(0).y - delta_y;
+			double v2 = corners(1).y - delta_y;
+			double v3 = corners(2).y - delta_y;
+			double v4 = corners(3).y - delta_y;
+
+			double x1 = u1 * Z / 533.333;
+			double x2 = u2 * Z / 533.333;
+			double x3 = u3 * Z / 533.333;
+			double x4 = u4 * Z / 533.333;
+
+			double y1 = v1 * Z / 533.333;
+			double y2 = v2 * Z / 533.333;
+			double y3 = v3 * Z / 533.333;
+			double y4 = v4 * Z / 533.333;
+
+			///////// AFTER THIS IS GOOD //////////
 
 			double x_squared = pow(abs(corners(0).x - corners(2).x), 2);
 			double y_squared = pow(abs(corners(0).y - corners(2).y), 2);
@@ -110,11 +135,15 @@ void chili_landmarks::update()
 
 			double distance_inches = 9 * 533.33 / diagonal_size;
 			double x_inches = -delta_x * distance_inches / 533.33;
-			double y_inches = sqrt(pow(distance_inches, 2) - pow(x_inches, 2));
+			double y_inches = -delta_y * distance_inches / 533.33;
+			//double z_inches = sqrt(pow(distance_inches, 2) - (pow(x_inches, 2) + pow(y_inches, 2)));
 
 			this->tags[id][0] = 1;
 			this->tags[id][1] = x_inches;
 			this->tags[id][2] = y_inches;
+			this->tags[id][3] = distance_inches;
+
+			///////// BEFORE THIS IS GOOD //////////
 
 			// printf("id: %d\t", id);
 			// printf("x: %0.3f\t\t", tags[id][1]);

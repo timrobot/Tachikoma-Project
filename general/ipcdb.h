@@ -15,7 +15,7 @@ static int stopsig;
 // for markers
 static chili_landmarks chili;
 static std::mutex chili_lock;
-static arma::mat chilitags(3, 20, arma::fill::zeros);
+static arma::mat chilitags(4, 20, arma::fill::zeros);
 
 // for sending motion to the robot
 static Tachikoma tachikoma;
