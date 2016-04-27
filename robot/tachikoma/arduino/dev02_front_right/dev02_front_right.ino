@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_PWMServoDriver.h"
+#include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <Encoder.h>
 #include <string.h>
 
