@@ -68,6 +68,7 @@ void setmotors(int vv[]) {
 			v[i] += v[i] < 0 ? -Ktolerance[i] : Ktolerance[i];
 		}
 	}
+	v[2] = vv[2];
 
 	// set isneg = sign(velocity), set velocity = |velocity|
 	bool isneg[3];
