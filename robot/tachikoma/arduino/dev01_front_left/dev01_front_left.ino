@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_MS_PWMServoDriver.h"
+#include "utility/Adafruit_PWMServoDriver.h"
 #include <Encoder.h>
 #include <string.h>
 
@@ -81,7 +81,7 @@ void setmotors(int vv[]) {
 	v[wheel] = limit(abs(v[wheel]), 0, 255);
 
 	// assign velocities to individual motors
-	int rev[8] = { 1, 1, 0, 0, 1, 0, 1, 0 };
+	int rev[8] = { 1, 1, 0, 0, 1, 0, 0, 1 };
 	int speeds[8] = {
 		v[waist], v[waist], v[wheel], v[wheel],
 		v[thigh], v[thigh], v[thigh], v[thigh] };
