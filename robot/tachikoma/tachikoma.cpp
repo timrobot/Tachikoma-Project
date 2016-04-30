@@ -77,6 +77,7 @@ Tachikoma::Tachikoma(void) : BaseRobot(TACHIKOMA) {
 	this->read_lock.unlock();
 	this->write_lock.unlock();
 	this->manager_running = false;
+	this->load_calibration_params("calib_params.json");
 	memset(&this->prevwritetime, 0, sizeof(struct timeval));
 	gettimeofday(&this->prevwritetime, NULL);
 	// connect to the tachikoma
@@ -236,6 +237,12 @@ void Tachikoma::thread_send(
 			(leg_vel_act ? 0x08 : 0x00) |
 			(wheel_vel_act ? 0x10 : 0x00);
 
+	cout << "==============================" << endl;
+	cout << leg_vel << endl;
+	cout << wheel_vel << endl;
+	cout << leg_pos_act << endl;
+	cout << "==============================" << endl;
+
 	// write to device
 	char msg[WBUFSIZE];
 	for (size_t i = 0; i < this->connections.size(); i++) {
@@ -379,6 +386,7 @@ void Tachikoma::thread_recv(
 			}
 		}
 	}
+	cout << "ENC: " << leg_pos << endl;
 }
 
 void Tachikoma::load_calibration_params(const string &filename) {
