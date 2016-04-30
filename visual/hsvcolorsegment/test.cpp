@@ -24,7 +24,7 @@ void detectcan(cv::Mat &frame) {
 	arma::mat I;
 	cvt_opencv2arma(hsv2mask, I);
 	if (arma::accu(I) < 10.0) {
-		continue;
+		return;
 	}
 	arma::rowvec r = arma::sum(I, 0);
 	arma::colvec c = arma::sum(I, 1);
@@ -37,8 +37,10 @@ void detectcan(cv::Mat &frame) {
 	//estw *= 3; // strange constants
 	//esth *= 3;
 
-	cokecanpos = vec({ midx, midy });
-	cokecanwidth = covx * 3;
+	arma::vec cokecanpos = arma::vec({ midx, midy });
+	double cokecanwidth = covx * 3;
+	cout << "pos: " << cokecanpos << endl;
+	cout << "width: " << cokecanwidth << endl;
 }
 
 int main(int argc, char *argv[]) {
