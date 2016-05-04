@@ -1,0 +1,84 @@
+{
+	"arm": {
+		"pivot1": {
+			"min_enc":213,
+			"max_enc":832,
+			"min_pos":-45,
+			"max_pos":45
+		},
+		"pivot2": {
+			"min_enc":310,
+			"max_enc":1000,
+			"min_pos":0,
+			"max_pos":170
+		},
+		"pivot3": {
+			"min_enc":100,
+			"max_enc":894,
+			"min_pos":-90,
+			"max_pos":90
+		},
+		"pivot4": {
+			"min_enc":600,
+			"max_enc":950,
+			"min_pos":0,
+			"max_pos":90
+		}
+	},
+	"ul": {
+		"waist": {
+			"min_enc":315,
+			"max_enc":735,
+			"min_pos":-45,
+			"max_pos":45
+		},
+		"thigh": {
+			"min_enc":340,
+			"max_enc":618,
+			"min_pos":-45,
+			"max_pos":45
+		}
+	},
+	"ur": {
+		"waist": {
+			"min_enc":306,
+			"max_enc":707,
+			"min_pos":-45,
+			"max_pos":45
+		},
+		"thigh": {
+			"min_enc":401,
+			"max_enc":659,
+			"min_pos":-45,
+			"max_pos":45
+		}
+	},
+	"dl": {
+		"waist": {
+			"min_enc":297,
+			"max_enc":704,
+			"min_pos":-45,
+			"max_pos":45
+		},
+		"thigh": {
+			"min_enc":318,
+			"max_enc":691,
+			"min_pos":-45,
+			"max_pos":45
+		}
+	},
+	"dr": {
+		"waist": {
+			"min_enc":277,
+			"max_enc":692,
+			"min_pos":-45,
+			"max_pos":45
+		},
+		"thigh": {
+			"min_enc":368,
+			"max_enc":651,
+			"min_pos":-45,
+			"max_pos":45
+		}
+	}
+}
