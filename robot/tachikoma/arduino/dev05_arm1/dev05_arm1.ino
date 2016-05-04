@@ -13,11 +13,12 @@
 
 Adafruit_MotorShield AFMS_base_pivot1(0x60);
 Adafruit_MotorShield AFMS_base_pivot2(0x61);
-Adafruit_DCMotor *motors[8];
+Adafruit_MotorShield AFMS_base_pivot3(0x62);
+Adafruit_DCMotor *motors[12];
 Servo claw;
-const int elbow = 0;
-const int wrist = 1;
-const int twist = 2;
+const int shoulder = 0;
+const int elbow = 1;
+const int wrist = 2;
 const int grab = 3;
 
 // PID constants
@@ -68,25 +69,27 @@ void setmotors(int vv[]) {
 	}
 	bool isneg[4];
 	// this only applies to the motors on the shields
-	int rev[8] = { 1, 1, 0, 0, 1, 0, 1, 0 };
+	int rev[12] = { 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0 }; // TODO
 
+	isneg[shoulder] = v[shoulder] < 0;
+	v[shoulder] = limit(abs(v[shoulder]), 0, 255);
 	isneg[elbow] = v[elbow] < 0;
 	v[elbow] = limit(abs(v[elbow]), 0, 255);
 	isneg[wrist] = v[wrist] < 0;
 	v[wrist] = limit(abs(v[wrist]), 0, 255);
-	isneg[twist] = v[twist] < 0;
-	v[twist] = limit(abs(v[twist]), 0, 255);
 	isneg[grab] = false;
 	v[grab] = limit(v[grab] * 90 / 255 + 90, 0, 180);
 
 	claw.write(v[grab]);
 
-	int speeds[8] = {
-		v[elbow], v[elbow], v[elbow], v[elbow],
-		v[wrist], v[wrist], v[twist], 0 };
-	int isneg2[8] = {
-		isneg[elbow], isneg[elbow], isneg[elbow], isneg[elbow],
-		isneg[wrist], isneg[wrist], isneg[twist], 0 };
+	int speeds[8] = {																		// TODO: assign these
+		v[shoulder], v[shoulder], v[shoulder], v[shoulder],
+		v[elbow], v[elbow], v[wrist], v[wrist],
+		v[grab], 0, 0, 0 };
+	int isneg2[8] = {																		// TODO
+		isneg[shoulder], isneg[shoulder], isneg[shoulder], isneg[shoulder],
+		isneg[elbow], isneg[elbow], isneg[wrist], isneg[wrist],
+		v[grab], 0, 0, 0 };
 
 	for (int i = 0; i < 8; i++) {
 		motors[i]->setSpeed(speeds[i]);
@@ -112,9 +115,9 @@ void setup() {
 
 	// set up the sensors
 	pinMode(POTPIN1, INPUT); // grab
-	pinMode(POTPIN2, INPUT); // twist
-	pinMode(POTPIN3, INPUT); // wrist
-	pinMode(POTPIN4, INPUT); // elbow
+	pinMode(POTPIN2, INPUT); // wrist
+	pinMode(POTPIN3, INPUT); // elbow
+	pinMode(POTPIN4, INPUT); // shoulder
 
 	// flash led 13
 	pinMode(13, OUTPUT);
@@ -154,18 +157,18 @@ void loop() {
 				// CUSTOMIZE (set the setpoint)
 				sscanf(s, "[%d %d %d %d %d %d %d %d %d]\n",
 						&instr_activate,
+						&pos[shoulder],
 						&pos[elbow],
 						&pos[wrist],
-						&pos[twist],
 						&pos[grab],
+						&vel[shoulder],
 						&vel[elbow],
 						&vel[wrist],
-						&vel[twist],
 						&vel[grab]);
 				// limit the positional encoders
+				pos[twist] = limit(pos[shoulder], 100, 930);
 				pos[elbow] = limit(pos[elbow], 310, 1000);
 				pos[wrist] = limit(pos[wrist], 100, 894);
-				pos[twist] = limit(pos[twist], 100, 930);
 				pos[grab] = limit(pos[grab], 600, 1000);
 						
 				arm_theta_act = instr_activate & 0x01;
@@ -197,23 +200,23 @@ void loop() {
 		if (dt > 0) {
 			piddiff = millis();
 
-			err = (double)(pos[elbow] - analogRead(POTPIN4));
+			err = (double)(pos[shoulder] - analogRead(POTPIN4));
+			total_err[shoulder] += err * dt;
+			delta_err = (err - prev_err[shoulder]) / dt;
+			vel[shoulder] = err * Kp[shoulder] + total_err[shoulder] * Ki[shoulder] + delta_err * Kd[shoulder];
+			prev_err[shoulder] = err;
+
+			err = (double)(pos[elbow] - analogRead(POTPIN3));
 			total_err[elbow] += err * dt;
 			delta_err = (err - prev_err[elbow]) / dt;
 			vel[elbow] = err * Kp[elbow] + total_err[elbow] * Ki[elbow] + delta_err * Kd[elbow];
 			prev_err[elbow] = err;
 
-			err = (double)(pos[wrist] - analogRead(POTPIN3));
+			err = (double)(pos[wrist] - analogRead(POTPIN2));
 			total_err[wrist] += err * dt;
 			delta_err = (err - prev_err[wrist]) / dt;
 			vel[wrist] = err * Kp[wrist] + total_err[wrist] * Ki[wrist] + delta_err * Kd[wrist];
 			prev_err[wrist] = err;
-
-			err = (double)(pos[twist] - analogRead(POTPIN2));
-			total_err[twist] += err * dt;
-			delta_err = (err - prev_err[twist]) / dt;
-			vel[twist] = err * Kp[twist] + total_err[twist] * Ki[twist] + delta_err * Kd[twist];
-			prev_err[twist] = err;
 
 			err = (double)(pos[grab] - analogRead(POTPIN1));
 			total_err[grab] += err * dt;
@@ -229,22 +232,22 @@ void loop() {
 	}
 
 	// ramp function for the signal output
-	int deltav[4] = { limit(vel[elbow] - pvel[elbow], -8, 8),
+	int deltav[4] = { limit(vel[shoulder] - pvel[shoulder], -8, 8),
+										limit(vel[elbow] - pvel[elbow], -8, 8),
 										limit(vel[wrist] - pvel[wrist], -8, 8),
-										limit(vel[twist] - pvel[twist], -8, 8),
 										limit(vel[grab] - pvel[grab], -255, 255) };
 	int v[4];
+	v[shoulder] = limit(pvel[shoulder] + deltav[shoulder], -172, 172);
 	v[elbow] = limit(pvel[elbow] + deltav[elbow], -172, 172);
 	v[wrist] = limit(pvel[wrist] + deltav[wrist], -172, 172);
-	v[twist] = limit(pvel[twist] + deltav[twist], -172, 172);
 	v[grab] = limit(pvel[grab] + deltav[grab], -255, 255);
 	
 	// push the values to the motors
 	setmotors(v);
 	
+	pvel[shoulder] = v[shoulder];
 	pvel[elbow] = v[elbow];
 	pvel[wrist] = v[wrist];
-	pvel[twist] = v[twist];
 	pvel[grab] = v[grab];
 
 	if (millis() - msecs > 50) {
@@ -254,9 +257,9 @@ void loop() {
 				analogRead(POTPIN3),
 				analogRead(POTPIN2),
 				analogRead(POTPIN1),
+				pvel[shoulder],
 				pvel[elbow],
 				pvel[wrist],
-				pvel[twist],
 				pvel[grab]);
 		Serial.print(wbuf);
 		msecs = millis();
