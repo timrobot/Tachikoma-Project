@@ -265,22 +265,15 @@ void Tachikoma::thread_send(
 					break;
 
 				// arm portion 1
-				case ARM_DEV1:
-					sprintf(msg, "[%d %d %d %d %d]\n",
+				case ARM_DEV:
+					sprintf(msg, "[%d %d %d %d %d %d %d %d %d]\n",
 							instr_activate,
 							(int)(arm_pos(PIVOT1) * 255.0),
 							(int)(arm_pos(PIVOT2) * 255.0),
-							(int)(arm_vel(PIVOT1) * 255.0),
-							(int)(arm_vel(PIVOT2) * 255.0));
-					serial_write(this->connections[i], msg);
-					break;
-
-				// arm portion 2
-				case ARM_DEV2:
-					sprintf(msg, "[%d %d %d %d %d]\n",
-							instr_activate,
 							(int)(arm_pos(PIVOT3) * 255.0),
 							(int)(arm_pos(PIVOT4) * 255.0),
+							(int)(arm_vel(PIVOT1) * 255.0),
+							(int)(arm_vel(PIVOT2) * 255.0),
 							(int)(arm_vel(PIVOT3) * 255.0),
 							(int)(arm_vel(PIVOT4) * 255.0));
 
@@ -316,11 +309,9 @@ void Tachikoma::thread_recv(
 
 	char *msg;
 	int devid;
-	int pot1;
-	int pot2;
-	int pot3;
+	int pot[4];
 	int shaftenc;
-	int vel[3];
+	int vel[4];
 	//int cr[2];
 
 	// read from device
@@ -349,35 +340,28 @@ void Tachikoma::thread_recv(
 					}
 					break;
 
-				// arm portion 1
-				case ARM_DEV1:
+				// arm portion
+				case ARM_DEV:
 					if ((msg = serial_read(this->connections[i]))) {
-						sscanf(msg, "[%d %d %d %d %d]\n", &this->ids[i],
-								&pot1, &pot2, &vel[0], &vel[1]);
+						sscanf(msg, "[%d %d %d %d %d %d %d %d %d]\n", &this->ids[i],
+								&pot1, &pot2, &pot3, &pot4,
+								&vel[0], &vel[1], &vel[2], &vel[3]);
 						arm_pos(PIVOT1) = map_value(pot1,
 								this->arm_min_enc(PIVOT1), this->arm_max_enc(PIVOT1),
 								this->arm_min_pos(PIVOT1), this->arm_max_pos(PIVOT1));
 						arm_pos(PIVOT2) = map_value(pot2,
 								this->arm_min_enc(PIVOT2), this->arm_max_enc(PIVOT2),
 								this->arm_min_pos(PIVOT2), this->arm_max_pos(PIVOT2));
-						arm_vel(PIVOT1) = (double)vel[0] / 255.0;
-						arm_vel(PIVOT2) = (double)vel[1] / 255.0;
-					}
-					break;
-
-				// arm portion 2
-				case ARM_DEV2:
-					if ((msg = serial_read(this->connections[i]))) {
-						sscanf(msg, "[%d %d %d %d %d %d %d]\n", &this->ids[i],
-								&pot1, &pot2, &pot3, &vel[0], &vel[1], &vel[2]);
-						arm_pos(PIVOT3) = map_value(pot1,
+						arm_pos(PIVOT3) = map_value(pot2,
 								this->arm_min_enc(PIVOT3), this->arm_max_enc(PIVOT3),
 								this->arm_min_pos(PIVOT3), this->arm_max_pos(PIVOT3));
 						arm_pos(PIVOT4) = map_value(pot2,
 								this->arm_min_enc(PIVOT4), this->arm_max_enc(PIVOT4),
 								this->arm_min_pos(PIVOT4), this->arm_max_pos(PIVOT4));
-						arm_vel(PIVOT3) = (double)vel[0] / 255.0;
-						arm_vel(PIVOT4) = (double)vel[1] / 255.0;
+						arm_vel(PIVOT1) = (double)vel[0] / 255.0;
+						arm_vel(PIVOT2) = (double)vel[1] / 255.0;
+						arm_vel(PIVOT3) = (double)vel[2] / 255.0;
+						arm_vel(PIVOT4) = (double)vel[3] / 255.0;
 					}
 					break;
 
@@ -386,7 +370,6 @@ void Tachikoma::thread_recv(
 			}
 		}
 	}
-	cout << "ENC: " << leg_pos << endl;
 }
 
 void Tachikoma::load_calibration_params(const string &filename) {

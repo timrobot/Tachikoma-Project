@@ -25,13 +25,12 @@
 #define DR					3
 
 // Device Ids //
-#define NUM_DEV			6
+#define NUM_DEV			5
 #define FRONT_LEFT	1
 #define FRONT_RIGHT	2
 #define BACK_LEFT		3
 #define BACK_RIGHT	4
-#define ARM_DEV1		5
-#define ARM_DEV2		6
+#define ARM_DEV			5
 
 class Tachikoma : public BaseRobot {
 	public:
