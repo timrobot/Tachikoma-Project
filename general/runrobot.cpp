@@ -83,7 +83,7 @@ static void screenblit(SDL_Surface *s, cube &frame)
 
 static void chilicamdetect_thread(void)
 {
-	chili.update();
+	chili.update(cameraFrame, camframelock);
 }
 
 int main()
@@ -109,8 +109,9 @@ int main()
 	// start up the threads
 	printf("[main] start up the threads\n");
 	tachikoma.connect();
+  tachikoma.stop_legs();
 	thread manual_thread(manual_input);
-	thread chilicamthread(chilicamdetect_thread);
+	//thread chilicamthread(chilicamdetect_thread); // uncomment later
 	thread chili_thread(chilitag_detect);
 	thread pose_thread(localize_pose);
 	thread path_thread(motion_plan);
@@ -145,6 +146,7 @@ static vec garm({ -15, 90, 30, 0 });
 
 void manual_input(void)
 {
+	int legstate = 0;
 	struct timeval starttime;
 	gettimeofday(&starttime, NULL);
 	while (!stopsig)
@@ -189,6 +191,37 @@ void manual_input(void)
 			continue;
 		}
 
+
+		/*if (keystates[SDLK_0]) {
+			legstate = 0;
+		} else if (keystates[SDLK_1]) {
+			legstate = 1;
+		} else if (keystates[SDLK_2]) {
+			legstate = 2;
+		} else if (keystates[SDLK_3]) {
+			legstate = 3;
+		} else if (keystates[SDLK_4]) {
+			legstate = 4;
+		}*/
+
+		/*switch (legstate) {
+			case 1:
+				tachikoma.set_legs(0, 0, 0, 0, -45, -45, -45, -45);
+				break;
+			case 2:
+				tachikoma.set_legs(0, 0, 0, 0, 0, 0, 0, 0);
+				break;
+			case 3:
+				tachikoma.set_legs(0, 0, 0, 0, 45, 45, 45, 45);
+				break;
+			case 4:
+				tachikoma.set_legs(45, -45, -45, 45, 0, 0, 0, 0);
+				break;
+			default:
+				tachikoma.stop_legs();
+				break;
+		}*/
+
 		// input arm manual feedback
 		struct timeval currtime;
 		gettimeofday(&currtime, NULL);
@@ -220,16 +253,16 @@ void manual_input(void)
 		}
 		else
 		{
-			tachikoma.stop_arm();
+			tachikoma.stop_arm();		
 		}
 
 		// input manual feedback
-		if			(keystates[SDLK_q]) tachikoma.set_wheels(-1,1,-1,1);
-		else if (keystates[SDLK_e]) tachikoma.set_wheels(1,-1,1,-1);
-		else if (keystates[SDLK_a]) tachikoma.set_wheels(-1,1,1,-1);
-		else if (keystates[SDLK_d]) tachikoma.set_wheels(1,-1,-1,1);
-		else if (keystates[SDLK_s]) tachikoma.set_wheels(-1,-1,-1,-1);
-		else if (keystates[SDLK_w]) tachikoma.set_wheels(1,1,1,1);
+		if	(keystates[SDLK_q]) tachikoma.set_wheels(-1,-1,-1,-1);
+		else if (keystates[SDLK_e]) tachikoma.set_wheels(1,1,1,1);
+		else if (keystates[SDLK_a]) tachikoma.set_wheels(-1,-1,1,1);
+		else if (keystates[SDLK_d]) tachikoma.set_wheels(1,1,-1,-1);
+		else if (keystates[SDLK_s]) tachikoma.set_wheels(-1,1,-1,1);
+		else if (keystates[SDLK_w]) tachikoma.set_wheels(1,-1,1,-1);
 		else if (keystates[SDLK_1]) tachikoma.set_wheels(1,0,0,0);
 		else if (keystates[SDLK_2]) tachikoma.set_wheels(0,1,0,0);
 		else if (keystates[SDLK_3]) tachikoma.set_wheels(0,0,1,0);
