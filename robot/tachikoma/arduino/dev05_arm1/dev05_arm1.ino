@@ -84,11 +84,11 @@ void setmotors(int vv[]) {
 
 	int speeds[8] = {																		// TODO: assign these
 		v[shoulder], v[shoulder], v[shoulder], v[shoulder],
-		v[elbow], v[elbow], v[wrist], v[wrist],
+		v[wrist], v[wrist], v[elbow], v[elbow],
 		v[grab], 0, 0, 0 };
 	int isneg2[8] = {																		// TODO
 		isneg[shoulder], isneg[shoulder], isneg[shoulder], isneg[shoulder],
-		isneg[elbow], isneg[elbow], isneg[wrist], isneg[wrist],
+		isneg[wrist], isneg[wrist], isneg[elbow], isneg[elbow],
 		v[grab], 0, 0, 0 };
 
 	for (int i = 0; i < 8; i++) {
