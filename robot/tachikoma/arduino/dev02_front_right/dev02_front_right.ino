@@ -1,14 +1,14 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_PWMServoDriver.h"
+#include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <Encoder.h>
 #include <string.h>
 
 #define DEV_ID	2
 
 #define POTPIN1	 A0
-#define POTPIN2	 A1
-#define CURSENSE1 A2
+#define POTPIN2	 A2
+#define CURSENSE1 A1
 #define CURSENSE2 A3
 
 Adafruit_MotorShield AFMS_lower_shield(0x60);

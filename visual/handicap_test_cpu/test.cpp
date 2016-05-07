@@ -6,7 +6,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <njson/json>
+#include "njson/json.hpp"
 
 using namespace arma;
 using namespace std;
@@ -111,7 +111,7 @@ Ptr<SVM> load_classifier(string s, string config_file) {
   }
   params_file.close();
   json config = json::parse(params);
-  
+
   Ptr<SVM> classifier = SVM::create();
 }
 
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
   for (mat &m : ht) {
     largestht.push_back(m(span::all, span(0,0)));
   }
-  
+
   // once the hough transform has been passed, then attempt to get
   // the max pooling of the hough transformed images
   printf("edges\n");
