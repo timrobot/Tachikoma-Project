@@ -588,13 +588,13 @@ void motion_plan(void)
 		}
 
 		// get the position of the teddy bear
-		//vec POS = vec({ (double)chili.tags[2][1], (double)chili.tags[2][2] });
+		//vec POS = vec({ (double)chili.tags[17][1], (double)chili.tags[17][2] });
 		//POS -= vec({ 320, 240 });
 		vec POS = bearpos;
 		cout << POS << endl;
-		//double WIDTH = chili.tags[2][3];
+		//double WIDTH = chili.tags[17][3];
 		double WIDTH = bearsize;
-		//if (!chili.tags[2][0]) {
+		//if (!chili.tags[17][0]) {
 		if (!bearfound) {
 		  //spin slowly
 		  //tachikoma.set_wheels(0.3, 0.3, 0.3, 0.3);
@@ -604,7 +604,7 @@ void motion_plan(void)
 		} else {
 		  //cout << "found tag!\n";
 		  if (state == 0) {
-			if (WIDTH < 28.0) {
+			if (WIDTH < 27.0) {
 			  state = 1;
 			} else {
 			  vec turn({ 0.3, 0.3, 0.3, 0.3 });
@@ -638,17 +638,19 @@ void motion_plan(void)
 		  }
 		  if (state == 3) {
 			// try to find chilitag
-			if (!chili.tags[2][0] && substate == 0) {
-			  tachikoma.set_wheels(0.3, 0.3, 0.3, 0.3);
+			if (!chili.tags[17][0] && substate == 0) {
+			  tachikoma.set_wheels(0.35, 0.35, 0.35, 0.35);
+			garm = pose3;
+			tachikoma.set_arm(garm(0), garm(1), garm(2)-50, garm(3));
 			}
 			else {
 			  if (substate == 0) {
-				if (chili.tags[2][3] < 25) {
+				if (chili.tags[17][3] < 30) {
 				  substate = 1;
 				}
 				vec turn({ 0.3, 0.3, 0.3, 0.3 });
 				vec forward({ 0.3, -0.3, 0.3, -0.3 });
-				vec POS2 = vec({ (double)chili.tags[2][1], (double)chili.tags[2][2] });
+				vec POS2 = vec({ (double)chili.tags[17][1], (double)chili.tags[17][2] });
 				int neggy = 1;
 				if (POS2(0) < 0) {
 				  neggy *= -1;
@@ -662,6 +664,18 @@ void motion_plan(void)
 				sleep(1);
 				garm = pose1;
 				tachikoma.set_arm(garm(0), garm(1), garm(2), garm(3));
+				sleep(1);
+				tachikoma.set_arm(garm(0), garm(1)-50, garm(2), garm(3));
+				vec backward({ -0.3, 0.3, -0.3, 0.3 });
+				tachikoma.set_wheels(backward(0), backward(1), backward(2), backward(3));
+				sleep(1);
+				tachikoma.set_wheels(0, 0 ,0, 0);
+				substate = 2;
+			  }
+			  if (substate == 2) {
+				garm = pose1;
+				tachikoma.set_wheels(0, 0 ,0,0);
+				tachikoma.set_arm(garm(0), garm(1)-50, garm(2), garm(3));
 			  }
 			}
 		  }
@@ -733,7 +747,7 @@ void display_interface(void)
 
 	while (!stopsig)
 	{
-		printf ("##### CHILITAG DEPTH: %lf #####\n", (double)chili.tags[2][3]);
+		printf ("##### CHILITAG DEPTH: %lf #####\n", (double)chili.tags[17][3]);
 		//printf ("##### BEAR DEPTH: %lf #####\n", (double)bearsize);
 		
 
