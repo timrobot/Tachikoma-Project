@@ -18,7 +18,7 @@ static const char *PREFIXES[] = {
 
 static int _serial_setattr(serial_t *connection);
 static void _serial_update(serial_t *connection);
-static char tempbuf[SWBUFMAX];
+static char tempbuf[SWREADMAX + 1];
 
 /** Connect to a serial device.
  *  @param connection
@@ -81,8 +81,8 @@ int serial_connect(serial_t *connection, char *port, int baudrate) {
   tcflush(connection->fd, TCIFLUSH);
   tcflush(connection->fd, TCOFLUSH);
   connection->connected = 1;
-  memset(connection->buffer, 0, SWBUFMAX);
-  memset(connection->readbuf, 0, SWREADMAX);
+  memset(connection->buffer, 0, SWBUFMAX + 1);
+  memset(connection->readbuf, 0, SWREADMAX + 1);
   connection->readAvailable = 0;
 
   printf("[SERIAL] Connected to %s\n", connection->port);

@@ -18,8 +18,8 @@ typedef struct serial {
   int     parity;
  
   /* values */
-  char    buffer[SWBUFMAX];
-  char    readbuf[SWREADMAX];
+  char    buffer[SWBUFMAX + 1];
+  char    readbuf[SWREADMAX + 1];
   int8_t  readAvailable;
 } serial_t;
 
